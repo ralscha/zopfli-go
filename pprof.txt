@@ -1,0 +1,99 @@
+goos: windows
+goarch: amd64
+pkg: zopfli-go
+cpu: Intel(R) Core(TM) i7-3610QM CPU @ 2.30GHz
+BenchmarkPureGoGzip/web-assets-256k-8         	       1	2496708700 ns/op	   0.10 MB/s	147814552 B/op	   66212 allocs/op
+BenchmarkPureGoGzip/records-logs-256k-8       	       1	2860982700 ns/op	   0.09 MB/s	661593072 B/op	  212223 allocs/op
+BenchmarkPureGoGzip/real-files-256k-8         	       1	2595470300 ns/op	   0.10 MB/s	151448824 B/op	   66719 allocs/op
+PASS
+ok  	zopfli-go	7.993s
+File: zopfli-go.test.exe
+Build ID: C:\w\ws\github\zopfli-go\zopfli-go.test.exe2026-03-30 20:59:04.6796775 +0200 CEST
+Type: cpu
+Time: 2026-03-30 21:00:05 CEST
+Duration: 7.96s, Total samples = 8.25s (103.62%)
+Showing nodes accounting for 7.63s, 92.48% of 8.25s total
+Dropped 98 nodes (cum <= 0.04s)
+      flat  flat%   sum%        cum   cum%
+     4.35s 52.73% 52.73%      6.66s 80.73%  zopfli-go.getBestLengthsStat
+     0.51s  6.18% 58.91%      0.51s  6.18%  zopfli-go.(*hash).update
+     0.40s  4.85% 63.76%      0.40s  4.85%  runtime.memmove
+     0.38s  4.61% 68.36%      1.07s 12.97%  zopfli-go.(*longestMatchCache).cacheToSublen
+     0.38s  4.61% 72.97%      0.38s  4.61%  zopfli-go.(*longestMatchCache).sublenToCache
+     0.38s  4.61% 77.58%      0.78s  9.45%  zopfli-go.fillUint16s (inline)
+     0.15s  1.82% 79.39%      0.15s  1.82%  runtime.semasleep
+     0.13s  1.58% 80.97%      0.14s  1.70%  zopfli-go.getMatch (inline)
+     0.12s  1.45% 82.42%      0.27s  3.27%  runtime.lock2
+     0.11s  1.33% 83.76%      0.24s  2.91%  zopfli-go.encodeTree
+     0.11s  1.33% 85.09%      1.93s 23.39%  zopfli-go.findLongestMatch
+     0.11s  1.33% 86.42%      1.19s 14.42%  zopfli-go.tryGetFromLongestMatchCache
+     0.10s  1.21% 87.64%      0.11s  1.33%  runtime.unlock2
+     0.10s  1.21% 88.85%      0.15s  1.82%  zopfli-go.boundaryPM
+     0.06s  0.73% 89.58%      0.06s  0.73%  runtime.semawakeup
+     0.05s  0.61% 90.18%      0.06s  0.73%  runtime.preemptM
+     0.04s  0.48% 90.67%      0.05s  0.61%  runtime.tryDeferToSpanScan
+     0.04s  0.48% 91.15%      0.05s  0.61%  zopfli-go.optimizeHuffmanForRLE
+     0.02s  0.24% 91.39%      0.07s  0.85%  runtime.freeDeadSpanSPMCs
+     0.02s  0.24% 91.64%      0.07s  0.85%  runtime.scanObject
+     0.02s  0.24% 91.88%      0.09s  1.09%  runtime.sweepone
+     0.02s  0.24% 92.12%      0.37s  4.48%  zopfli-go.lengthLimitedCodeLengths
+     0.01s  0.12% 92.24%      0.17s  2.06%  runtime.gcDrain
+     0.01s  0.12% 92.36%      0.20s  2.42%  zopfli-go.followPath
+     0.01s  0.12% 92.48%      0.39s  4.73%  zopfli-go.storeInLongestMatchCache
+         0     0% 92.48%      0.05s  0.61%  gcWriteBarrier
+         0     0% 92.48%      0.07s  0.85%  runtime.(*mcache).nextFree
+         0     0% 92.48%      0.07s  0.85%  runtime.(*mcache).refill
+         0     0% 92.48%      0.05s  0.61%  runtime.(*mcentral).cacheSpan
+         0     0% 92.48%      0.06s  0.73%  runtime.(*mheap).alloc
+         0     0% 92.48%      0.07s  0.85%  runtime.(*mheap).alloc.func1
+         0     0% 92.48%      0.06s  0.73%  runtime.(*mheap).allocSpan
+         0     0% 92.48%      0.05s  0.61%  runtime.(*sweepLocked).sweep
+         0     0% 92.48%      0.32s  3.88%  runtime.bgsweep
+         0     0% 92.48%      0.08s  0.97%  runtime.findRunnable
+         0     0% 92.48%      0.08s  0.97%  runtime.freeSomeWbufs
+         0     0% 92.48%      0.15s  1.82%  runtime.gcBgMarkWorker
+         0     0% 92.48%      0.17s  2.06%  runtime.gcBgMarkWorker.func2
+         0     0% 92.48%      0.12s  1.45%  runtime.gcDrainMarkWorkerDedicated (inline)
+         0     0% 92.48%      0.05s  0.61%  runtime.gcDrainMarkWorkerIdle (inline)
+         0     0% 92.48%      0.05s  0.61%  runtime.gcstopm
+         0     0% 92.48%      0.16s  1.94%  runtime.gopreempt_m (inline)
+         0     0% 92.48%      0.16s  1.94%  runtime.goschedImpl
+         0     0% 92.48%      0.27s  3.27%  runtime.lock (partial-inline)
+         0     0% 92.48%      0.27s  3.27%  runtime.lockWithRank (inline)
+         0     0% 92.48%      0.10s  1.21%  runtime.makeslice
+         0     0% 92.48%      0.16s  1.94%  runtime.mallocgc
+         0     0% 92.48%      0.11s  1.33%  runtime.mallocgcSmallScanHeader
+         0     0% 92.48%      0.06s  0.73%  runtime.markroot
+         0     0% 92.48%      0.15s  1.82%  runtime.morestack
+         0     0% 92.48%      0.06s  0.73%  runtime.newobject
+         0     0% 92.48%      0.16s  1.94%  runtime.newstack
+         0     0% 92.48%      0.05s  0.61%  runtime.notewakeup
+         0     0% 92.48%      0.05s  0.61%  runtime.preemptone
+         0     0% 92.48%      0.08s  0.97%  runtime.schedule
+         0     0% 92.48%      0.41s  4.97%  runtime.systemstack
+         0     0% 92.48%      0.11s  1.33%  runtime.unlock (inline)
+         0     0% 92.48%      0.11s  1.33%  runtime.unlockWithRank (inline)
+         0     0% 92.48%      0.07s  0.85%  runtime.wakep
+         0     0% 92.48%      0.05s  0.61%  runtime.wbBufFlush
+         0     0% 92.48%      0.05s  0.61%  runtime.wbBufFlush.func1
+         0     0% 92.48%      0.05s  0.61%  runtime.wbBufFlush1
+         0     0% 92.48%      7.48s 90.67%  testing.(*B).run1.func1
+         0     0% 92.48%      7.48s 90.67%  testing.(*B).runN
+         0     0% 92.48%      7.48s 90.67%  zopfli-go.BenchmarkPureGoGzip.func1
+         0     0% 92.48%      7.48s 90.67%  zopfli-go.Compress
+         0     0% 92.48%      0.58s  7.03%  zopfli-go.blockSplit
+         0     0% 92.48%      0.56s  6.79%  zopfli-go.blockSplitLZ77
+         0     0% 92.48%      0.37s  4.48%  zopfli-go.calculateBitLengths (inline)
+         0     0% 92.48%      0.58s  7.03%  zopfli-go.calculateBlockSize
+         0     0% 92.48%      0.56s  6.79%  zopfli-go.calculateBlockSizeAutoType
+         0     0% 92.48%      0.24s  2.91%  zopfli-go.calculateTreeSize
+         0     0% 92.48%      7.48s 90.67%  zopfli-go.deflate
+         0     0% 92.48%      7.48s 90.67%  zopfli-go.deflatePart
+         0     0% 92.48%      0.56s  6.79%  zopfli-go.estimateCost (inline)
+         0     0% 92.48%      0.56s  6.79%  zopfli-go.findMinimum
+         0     0% 92.48%      0.58s  7.03%  zopfli-go.getDynamicLengths
+         0     0% 92.48%      7.48s 90.67%  zopfli-go.gzipCompress
+         0     0% 92.48%      6.89s 83.52%  zopfli-go.lz77Optimal
+         0     0% 92.48%      6.86s 83.15%  zopfli-go.lz77OptimalRunStat
+         0     0% 92.48%      0.56s  6.79%  zopfli-go.splitCost
+         0     0% 92.48%      0.46s  5.58%  zopfli-go.tryOptimizeHuffmanForRLE

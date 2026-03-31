@@ -1,0 +1,45 @@
+{
+  "service": "harbor-archive",
+  "version": 14,
+  "region": "north-embankment",
+  "generatedAt": "2026-03-30T06:30:00Z",
+  "manifests": [
+    {
+      "id": "m-1001",
+      "ship": "Aurora Finch",
+      "destination": "Reykjavik",
+      "crates": 128,
+      "sealed": true,
+      "categories": ["paper", "lamp glass", "tea"],
+      "weights": {"grossKg": 11234, "netKg": 10610}
+    },
+    {
+      "id": "m-1002",
+      "ship": "Vale Runner",
+      "destination": "Dublin",
+      "crates": 72,
+      "sealed": true,
+      "categories": ["machinery", "rope", "canvas"],
+      "weights": {"grossKg": 8640, "netKg": 8011}
+    },
+    {
+      "id": "m-1003",
+      "ship": "Meridian Bell",
+      "destination": "Bergen",
+      "crates": 91,
+      "sealed": false,
+      "categories": ["ink", "stationery", "copper fittings"],
+      "weights": {"grossKg": 9730, "netKg": 9184}
+    }
+  ],
+  "operators": [
+    {"id": "op-01", "name": "Mila Hsu", "shift": "night", "clearance": "amber"},
+    {"id": "op-02", "name": "Jonas Pike", "shift": "day", "clearance": "blue"},
+    {"id": "op-03", "name": "Nadia Holt", "shift": "night", "clearance": "gold"}
+  ],
+  "checks": {
+    "weather": ["stable", "cold", "clear"],
+    "equipment": ["crane-a", "crane-c", "boiler-west"],
+    "archive": ["room-3", "shelf-b2", "drawer-14"]
+  }
+}

@@ -1,0 +1,63 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List all available tasks
+    cmds:
+      - task --list
+
+  build-upstream:
+    desc: Build the upstream C zopfli binary
+    cmds:
+      - >-
+        go run ./cmd/zopfli-task build-upstream
+        {{if .UPSTREAM_ROOT}} -upstream-root {{quote .UPSTREAM_ROOT}}{{end}}
+        {{if .OUT}} -out {{quote .OUT}}{{end}}
+        {{if .CC}} -cc {{quote .CC}}{{end}}
+
+  bench-upstream:
+    desc: Run Go vs upstream C benchmarks
+    cmds:
+      - >-
+        go run ./cmd/zopfli-task bench-upstream
+        {{if .UPSTREAM_ROOT}} -upstream-root {{quote .UPSTREAM_ROOT}}{{end}}
+        {{if .UPSTREAM_EXE}} -upstream-exe {{quote .UPSTREAM_EXE}}{{end}}
+        {{if .BENCH}} -bench {{quote .BENCH}}{{end}}
+        {{if .BENCHTIME}} -benchtime {{quote .BENCHTIME}}{{end}}
+        {{if .CC}} -cc {{quote .CC}}{{end}}
+        {{if .AUTO_BUILD}} -auto-build={{.AUTO_BUILD}}{{end}}
+
+  capture-cpu-profile:
+    desc: Capture a benchmark CPU profile and print pprof top
+    cmds:
+      - >-
+        go run ./cmd/zopfli-task capture-cpu-profile
+        {{if .PROFILE}} -profile {{quote .PROFILE}}{{end}}
+        {{if .BENCH}} -bench {{quote .BENCH}}{{end}}
+        {{if .BENCHTIME}} -benchtime {{quote .BENCHTIME}}{{end}}
+
+  bench-pgo:
+    desc: Compare baseline and PGO benchmark runs
+    cmds:
+      - >-
+        go run ./cmd/zopfli-task bench-pgo
+        {{if .PROFILE}} -profile {{quote .PROFILE}}{{end}}
+        {{if .BENCH}} -bench {{quote .BENCH}}{{end}}
+        {{if .BENCHTIME}} -benchtime {{quote .BENCHTIME}}{{end}}
+
+  bench-summary:
+    desc: Print a markdown benchmark summary table
+    cmds:
+      - >-
+        go run ./cmd/zopfli-task bench-summary
+        {{if .PROFILE}} -profile {{quote .PROFILE}}{{end}}
+        {{if .BENCHTIME}} -benchtime {{quote .BENCHTIME}}{{end}}
+        {{if .UPSTREAM_ROOT}} -upstream-root {{quote .UPSTREAM_ROOT}}{{end}}
+        {{if .UPSTREAM_EXE}} -upstream-exe {{quote .UPSTREAM_EXE}}{{end}}
+        {{if .CC}} -cc {{quote .CC}}{{end}}
+        {{if .AUTO_BUILD}} -auto-build={{.AUTO_BUILD}}{{end}}
+
+  test:
+    desc: Run the test suite
+    cmds:
+      - go test ./...

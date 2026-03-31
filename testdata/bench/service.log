@@ -1,0 +1,13 @@
+2026-03-30T05:40:01Z INFO  scheduler       archive rotation plan loaded from /etc/harbor/rotation.toml
+2026-03-30T05:40:03Z INFO  scheduler       computed 64 tasks for berth inventory sweep
+2026-03-30T05:40:04Z WARN  storage         shelf b2 humidity drift detected value=63 threshold=60
+2026-03-30T05:40:06Z INFO  storage         shelf b2 fan profile adjusted mode=burst duration=120s
+2026-03-30T05:40:07Z INFO  intake          cargo manifest m-1001 validated checksum=09f74d05
+2026-03-30T05:40:08Z INFO  intake          cargo manifest m-1002 validated checksum=1fe2c1d1
+2026-03-30T05:40:09Z WARN  intake          cargo manifest m-1003 missing seal marker crate=44
+2026-03-30T05:40:10Z INFO  notifier        dispatching summary to watch-room and quay-office
+2026-03-30T05:40:11Z INFO  boiler-west     pressure stable value=79 delta=+1
+2026-03-30T05:40:12Z INFO  crane-a         idle current=0.32A brake=engaged
+2026-03-30T05:40:13Z INFO  crane-c         idle current=0.28A brake=engaged
+2026-03-30T05:40:14Z INFO  renderer        dashboard payload published bytes=18422
+2026-03-30T05:40:15Z INFO  scheduler       queue empty next-evaluation=2026-03-30T05:45:00Z
