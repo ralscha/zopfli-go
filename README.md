@@ -130,6 +130,8 @@ go run ./cmd/zopfli-task bench-summary
 
 GitHub releases are produced by GoReleaser from version tags such as `v1.0.0`.
 
+Release assets are archived as `.tar.gz` on Linux and macOS, and as `.zip` on Windows.
+
 The npm package is the root package in this repository. Its implementation lives under `npm/`, and its `postinstall` script downloads the matching GitHub release asset for the current package version.
 
 Publish the npm package separately from a local machine after the matching GitHub release exists:

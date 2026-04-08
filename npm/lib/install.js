@@ -5,6 +5,8 @@ const path = require('node:path');
 const https = require('node:https');
 const zlib = require('node:zlib');
 
+const TAR_BLOCK_SIZE = 512;
+
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const PACKAGE_JSON_PATH = path.join(ROOT_DIR, 'package.json');
 const NATIVE_DIR = path.join(ROOT_DIR, 'npm', 'native');
@@ -25,8 +27,11 @@ async function installBinary() {
   const temporaryFile = `${destination}${target.archiveExtension}.download`;
   await download(url, temporaryFile);
 
-  if (target.archiveExtension) {
+  if (target.archiveType === 'zip') {
     extractBinaryFromZip(temporaryFile, binaryFileName, destination);
+    fs.rmSync(temporaryFile, { force: true });
+  } else if (target.archiveType === 'tar.gz') {
+    extractBinaryFromTarGz(temporaryFile, binaryFileName, destination);
     fs.rmSync(temporaryFile, { force: true });
   } else {
     fs.renameSync(temporaryFile, destination);
@@ -60,7 +65,8 @@ function resolveTarget(platform = process.platform, architecture = process.arch)
 
   return {
     arch,
-    archiveExtension: platform === 'win32' ? '.zip' : '',
+    archiveExtension: platform === 'win32' ? '.zip' : '.tar.gz',
+    archiveType: platform === 'win32' ? 'zip' : 'tar.gz',
     extension: platform === 'win32' ? '.exe' : '',
     os,
   };
@@ -121,6 +127,81 @@ function extractBinaryFromZip(zipPath, binaryFileName, destination) {
   }
 
   fs.writeFileSync(destination, data);
+}
+
+function extractBinaryFromTarGz(tarGzPath, binaryFileName, destination) {
+  const archive = zlib.gunzipSync(fs.readFileSync(tarGzPath));
+  const entry = findTarEntry(archive, binaryFileName);
+
+  if (!entry) {
+    throw new Error(`binary ${binaryFileName} not found in archive ${tarGzPath}`);
+  }
+
+  fs.writeFileSync(destination, entry.data);
+}
+
+function findTarEntry(archive, binaryFileName) {
+  for (let offset = 0; offset + TAR_BLOCK_SIZE <= archive.length;) {
+    const header = archive.subarray(offset, offset + TAR_BLOCK_SIZE);
+    if (isZeroBlock(header)) {
+      return null;
+    }
+
+    const name = readTarString(header, 0, 100);
+    const prefix = readTarString(header, 345, 155);
+    const size = readTarOctal(header, 124, 12);
+    const typeflag = readTarString(header, 156, 1) || '0';
+    const fullName = prefix ? `${prefix}/${name}` : name;
+    const fileName = fullName.split('/').pop();
+    const dataOffset = offset + TAR_BLOCK_SIZE;
+    const dataEnd = dataOffset + size;
+
+    if (dataEnd > archive.length) {
+      throw new Error('invalid tar archive: entry exceeds archive size');
+    }
+
+    if ((typeflag === '0' || typeflag === '') && fileName === binaryFileName) {
+      return {
+        data: archive.subarray(dataOffset, dataEnd),
+      };
+    }
+
+    offset = dataOffset + alignTarSize(size);
+  }
+
+  throw new Error('invalid tar archive: missing end-of-archive marker');
+}
+
+function alignTarSize(size) {
+  return Math.ceil(size / TAR_BLOCK_SIZE) * TAR_BLOCK_SIZE;
+}
+
+function isZeroBlock(block) {
+  for (const byte of block) {
+    if (byte !== 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function readTarString(buffer, offset, length) {
+  const value = buffer.subarray(offset, offset + length).toString('utf8');
+  const terminatorIndex = value.indexOf('\0');
+  return (terminatorIndex === -1 ? value : value.slice(0, terminatorIndex)).trim();
+}
+
+function readTarOctal(buffer, offset, length) {
+  const raw = readTarString(buffer, offset, length).trim();
+  if (!raw) {
+    return 0;
+  }
+
+  if (!/^[0-7]+$/.test(raw)) {
+    throw new Error(`invalid tar size field: ${raw}`);
+  }
+
+  return Number.parseInt(raw, 8);
 }
 
 function findZipEntry(archive, binaryFileName) {
@@ -227,8 +308,10 @@ function download(url, destination) {
 
 module.exports = {
   buildDownloadUrl,
+  extractBinaryFromTarGz,
   extractBinaryFromZip,
   findEndOfCentralDirectory,
+  findTarEntry,
   findZipEntry,
   installBinary,
   renderTemplate,

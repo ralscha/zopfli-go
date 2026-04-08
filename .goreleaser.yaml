@@ -21,7 +21,7 @@ archives:
     ids:
       - zopfli-go
     formats:
-      - binary
+      - tar.gz
     name_template: '{{ trimsuffix .Binary ".exe" }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
     format_overrides:
       - goos: windows

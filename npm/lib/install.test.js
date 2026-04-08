@@ -7,7 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const zlib = require('node:zlib');
 
-const { buildDownloadUrl, extractBinaryFromZip, renderTemplate, resolveTarget } = require('./install');
+const { buildDownloadUrl, extractBinaryFromTarGz, extractBinaryFromZip, renderTemplate, resolveTarget } = require('./install');
 
 test('renderTemplate substitutes all placeholders', () => {
   assert.equal(
@@ -51,37 +51,43 @@ test('buildDownloadUrl composes the GitHub release asset URL', () => {
 test('resolveTarget maps all supported platform and architecture combinations', () => {
   assert.deepEqual(resolveTarget('linux', 'x64'), {
     arch: 'amd64',
-    archiveExtension: '',
+    archiveExtension: '.tar.gz',
+    archiveType: 'tar.gz',
     extension: '',
     os: 'linux',
   });
   assert.deepEqual(resolveTarget('linux', 'arm64'), {
     arch: 'arm64',
-    archiveExtension: '',
+    archiveExtension: '.tar.gz',
+    archiveType: 'tar.gz',
     extension: '',
     os: 'linux',
   });
   assert.deepEqual(resolveTarget('darwin', 'x64'), {
     arch: 'amd64',
-    archiveExtension: '',
+    archiveExtension: '.tar.gz',
+    archiveType: 'tar.gz',
     extension: '',
     os: 'darwin',
   });
   assert.deepEqual(resolveTarget('darwin', 'arm64'), {
     arch: 'arm64',
-    archiveExtension: '',
+    archiveExtension: '.tar.gz',
+    archiveType: 'tar.gz',
     extension: '',
     os: 'darwin',
   });
   assert.deepEqual(resolveTarget('win32', 'x64'), {
     arch: 'amd64',
     archiveExtension: '.zip',
+    archiveType: 'zip',
     extension: '.exe',
     os: 'windows',
   });
   assert.deepEqual(resolveTarget('win32', 'arm64'), {
     arch: 'arm64',
     archiveExtension: '.zip',
+    archiveType: 'zip',
     extension: '.exe',
     os: 'windows',
   });
@@ -107,19 +113,19 @@ test('buildDownloadUrl matches GitHub release asset names for all supported targ
 
   assert.equal(
     buildDownloadUrl(packageJson, resolveTarget('linux', 'x64')),
-    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_linux_amd64',
+    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_linux_amd64.tar.gz',
   );
   assert.equal(
     buildDownloadUrl(packageJson, resolveTarget('linux', 'arm64')),
-    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_linux_arm64',
+    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_linux_arm64.tar.gz',
   );
   assert.equal(
     buildDownloadUrl(packageJson, resolveTarget('darwin', 'x64')),
-    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_darwin_amd64',
+    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_darwin_amd64.tar.gz',
   );
   assert.equal(
     buildDownloadUrl(packageJson, resolveTarget('darwin', 'arm64')),
-    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_darwin_arm64',
+    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_darwin_arm64.tar.gz',
   );
   assert.equal(
     buildDownloadUrl(packageJson, resolveTarget('win32', 'x64')),
@@ -142,6 +148,22 @@ test('extractBinaryFromZip extracts the expected binary from a Windows archive',
   ]));
 
   extractBinaryFromZip(zipPath, 'zopfli-go.exe', destination);
+
+  assert.equal(fs.readFileSync(destination, 'utf8'), 'binary-data');
+  fs.rmSync(temporaryDirectory, { force: true, recursive: true });
+});
+
+test('extractBinaryFromTarGz extracts the expected binary from a unix archive', () => {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'zopfli-go-'));
+  const tarGzPath = path.join(temporaryDirectory, 'archive.tar.gz');
+  const destination = path.join(temporaryDirectory, 'zopfli-go');
+
+  fs.writeFileSync(tarGzPath, createTarGzArchive([
+    { name: 'README.md', data: Buffer.from('readme') },
+    { name: 'bin/zopfli-go', data: Buffer.from('binary-data') },
+  ]));
+
+  extractBinaryFromTarGz(tarGzPath, 'zopfli-go', destination);
 
   assert.equal(fs.readFileSync(destination, 'utf8'), 'binary-data');
   fs.rmSync(temporaryDirectory, { force: true, recursive: true });
@@ -204,4 +226,57 @@ function createZipArchive(entries) {
   endOfCentralDirectory.writeUInt16LE(0, 20);
 
   return Buffer.concat([...localRecords, centralDirectory, endOfCentralDirectory]);
+}
+
+function createTarGzArchive(entries) {
+  return zlib.gzipSync(createTarArchive(entries));
+}
+
+function createTarArchive(entries) {
+  const records = [];
+
+  for (const entry of entries) {
+    const header = Buffer.alloc(512, 0);
+    const name = Buffer.from(entry.name, 'utf8');
+    if (name.length > 100) {
+      throw new Error(`tar test entry name too long: ${entry.name}`);
+    }
+
+    name.copy(header, 0);
+    writeTarOctal(header, 100, 8, 0o755);
+    writeTarOctal(header, 108, 8, 0);
+    writeTarOctal(header, 116, 8, 0);
+    writeTarOctal(header, 124, 12, entry.data.length);
+    writeTarOctal(header, 136, 12, 0);
+    header.fill(0x20, 148, 156);
+    header.write('0', 156, 'ascii');
+    Buffer.from('ustar\0', 'ascii').copy(header, 257);
+    Buffer.from('00', 'ascii').copy(header, 263);
+
+    const checksum = calculateTarChecksum(header);
+    writeTarOctal(header, 148, 8, checksum);
+
+    records.push(header, entry.data, Buffer.alloc(padTarSize(entry.data.length), 0));
+  }
+
+  records.push(Buffer.alloc(1024, 0));
+  return Buffer.concat(records);
+}
+
+function writeTarOctal(buffer, offset, length, value) {
+  const encoded = value.toString(8).padStart(length - 2, '0');
+  buffer.write(`${encoded}\0 `, offset, length, 'ascii');
+}
+
+function calculateTarChecksum(header) {
+  let checksum = 0;
+  for (const byte of header) {
+    checksum += byte;
+  }
+  return checksum;
+}
+
+function padTarSize(size) {
+  const remainder = size % 512;
+  return remainder === 0 ? 0 : 512 - remainder;
 }
