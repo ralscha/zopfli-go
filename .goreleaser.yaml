@@ -20,8 +20,13 @@ archives:
   - id: binaries
     ids:
       - zopfli-go
-    format: binary
-    name_template: '{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ .Ext }}'
+    formats:
+      - binary
+    name_template: '{{ trimsuffix .Binary ".exe" }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
 
 checksum:
   name_template: checksums.txt

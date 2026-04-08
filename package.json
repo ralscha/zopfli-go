@@ -33,6 +33,6 @@
     "repo": "zopfli-go",
     "binaryName": "zopfli-go",
     "tagPrefix": "v",
-    "assetNameTemplate": "{{binary}}_{{version}}_{{os}}_{{arch}}{{extension}}"
+    "assetNameTemplate": "{{binary}}_{{version}}_{{os}}_{{arch}}{{archiveExtension}}"
   }
 }

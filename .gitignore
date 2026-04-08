@@ -2,3 +2,4 @@
 llvm/
 *.out
 pprof.txt
+dist
