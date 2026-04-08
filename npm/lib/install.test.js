@@ -12,9 +12,9 @@ test('renderTemplate substitutes all placeholders', () => {
       binary: 'zopfli-go',
       extension: '.exe',
       os: 'windows',
-      version: '0.1.0',
+      version: '1.0.0',
     }),
-    'zopfli-go_0.1.0_windows_amd64.exe',
+    'zopfli-go_1.0.0_windows_amd64.exe',
   );
 });
 
@@ -25,7 +25,7 @@ test('renderTemplate rejects unknown placeholders', () => {
 test('buildDownloadUrl composes the GitHub release asset URL', () => {
   assert.equal(
     buildDownloadUrl({
-      version: '0.1.0',
+      version: '1.0.0',
       zopfliGo: {
         owner: 'ralscha',
         repo: 'zopfli-go',
@@ -38,6 +38,6 @@ test('buildDownloadUrl composes the GitHub release asset URL', () => {
       extension: '.exe',
       os: 'windows',
     }),
-    'https://github.com/ralscha/zopfli-go/releases/download/v0.1.0/zopfli-go_0.1.0_windows_amd64.exe',
+    'https://github.com/ralscha/zopfli-go/releases/download/v1.0.0/zopfli-go_1.0.0_windows_amd64.exe',
   );
 });

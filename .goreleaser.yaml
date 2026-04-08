@@ -1,0 +1,33 @@
+version: 2
+
+project_name: zopfli-go
+
+builds:
+  - id: zopfli-go
+    main: ./cmd/zopfli-go
+    binary: zopfli-go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: binaries
+    ids:
+      - zopfli-go
+    format: binary
+    name_template: '{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ .Ext }}'
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  prerelease: auto
+
+changelog:
+  sort: asc

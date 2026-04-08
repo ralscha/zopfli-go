@@ -125,3 +125,15 @@ Generate the benchmark summary locally with:
 ```bash
 go run ./cmd/zopfli-task bench-summary
 ```
+
+## Releases
+
+GitHub releases are produced by GoReleaser from version tags such as `v1.0.0`.
+
+The npm package is the root package in this repository. Its implementation lives under `npm/`, and its `postinstall` script downloads the matching GitHub release binary for the current package version.
+
+Publish the npm package separately from a local machine after the matching GitHub release exists:
+
+```bash
+task npm-publish
+```

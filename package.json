@@ -1,6 +1,6 @@
 {
   "name": "zopfli-go",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "JavaScript wrapper around the zopfli-go asset precompression CLI",
   "main": "./npm/index.js",
   "types": "./npm/index.d.ts",
