@@ -93,13 +93,13 @@ func getCostModelMinCostStat(stats *symbolStats) float64 {
 	}
 	minCost = largeFloat
 	for _, dist := range distSymbolsTable {
-		c := getCostStat(3, uint16(dist), stats)
+		c := getCostStat(3, toUint16(dist), stats)
 		if c < minCost {
 			bestDist = dist
 			minCost = c
 		}
 	}
-	return getCostStat(uint16(bestLength), uint16(bestDist), stats)
+	return getCostStat(toUint16(bestLength), toUint16(bestDist), stats)
 }
 
 func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *symbolStats, lengthArray []uint16, h *hash, costs []float64) float64 {
@@ -152,7 +152,7 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 				lengthsAtJ[1] = 1
 			}
 		}
-		if _, cachedLeng, ends, dists, ok := tryGetFromLongestMatchCacheCompact(s, i, maxMatch); ok {
+		if cachedLeng, ends, dists, ok := tryGetFromLongestMatchCacheCompact(s, i, maxMatch); ok {
 			kend := minInt(int(cachedLeng), inend-i)
 			minCostAdd := minCost + baseCost
 			prevLength := 3
@@ -248,7 +248,7 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 			costs[j+1] = newLiteralCost
 			lengthArray[j+1] = 1
 		}
-		if _, cachedLeng, ends, dists, ok := tryGetFromLongestMatchCacheCompact(s, i, maxMatch); ok {
+		if cachedLeng, ends, dists, ok := tryGetFromLongestMatchCacheCompact(s, i, maxMatch); ok {
 			kend := minInt(int(cachedLeng), inend-i)
 			minCostAdd := minCost + baseCost
 			prevLength := 3

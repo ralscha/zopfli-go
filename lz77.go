@@ -89,8 +89,8 @@ func (s *lz77Store) storeLitLenDist(length, dist uint16, pos int) {
 		s.dSymbol = append(s.dSymbol, 0)
 		s.llCounts[llStart+int(length)]++
 	} else {
-		llSymbol := uint16(getLengthSymbol(int(length)))
-		dSymbol := uint16(getDistSymbol(int(dist)))
+		llSymbol := toUint16(getLengthSymbol(int(length)))
+		dSymbol := toUint16(getDistSymbol(int(dist)))
 		s.llSymbol = append(s.llSymbol, llSymbol)
 		s.dSymbol = append(s.dSymbol, dSymbol)
 		s.llCounts[llStart+int(llSymbol)]++
@@ -216,7 +216,7 @@ func tryGetFromLongestMatchCache(s *blockState, pos int, limit *int, sublen *[ma
 	lmc := s.lmc
 	matchLength := int(lmc.length[lmcPos])
 	matchDist := lmc.dist[lmcPos]
-	if !(matchLength == 0 || matchDist != 0) {
+	if matchLength != 0 && matchDist == 0 {
 		return 0, 0, false
 	}
 	if *limit != maxMatch && matchLength > *limit {
@@ -229,9 +229,9 @@ func tryGetFromLongestMatchCache(s *blockState, pos int, limit *int, sublen *[ma
 		}
 	}
 	if sublen == nil {
-		length := uint16(matchLength)
+		length := toUint16(matchLength)
 		if int(length) > *limit {
-			length = uint16(*limit)
+			length = toUint16(*limit)
 		}
 		return matchDist, length, true
 	}
@@ -240,33 +240,33 @@ func tryGetFromLongestMatchCache(s *blockState, pos int, limit *int, sublen *[ma
 		*limit = matchLength
 		return 0, 0, false
 	}
-	length := uint16(matchLength)
+	length := toUint16(matchLength)
 	if int(length) > *limit {
-		length = uint16(*limit)
+		length = toUint16(*limit)
 	}
 	lmc.cacheToSublen(lmcPos, int(length), sublen)
 	return sublen[length], length, true
 }
 
-func tryGetFromLongestMatchCacheCompact(s *blockState, pos, limit int) (uint16, uint16, []uint16, []uint16, bool) {
+func tryGetFromLongestMatchCacheCompact(s *blockState, pos, limit int) (uint16, []uint16, []uint16, bool) {
 	if s.lmc == nil {
-		return 0, 0, nil, nil, false
+		return 0, nil, nil, false
 	}
 	lmcPos := pos - s.blockstart
 	lmc := s.lmc
 	matchLength := int(lmc.length[lmcPos])
 	matchDist := lmc.dist[lmcPos]
-	if !(matchLength == 0 || matchDist != 0) {
-		return 0, 0, nil, nil, false
+	if matchLength != 0 && matchDist == 0 {
+		return 0, nil, nil, false
 	}
 	maxCached, ends, dists, ok := lmc.compactSublen(lmcPos, matchLength)
 	if !ok || matchLength > maxCached {
-		return 0, 0, nil, nil, false
+		return 0, nil, nil, false
 	}
 	if matchLength > limit {
 		matchLength = limit
 	}
-	return matchDist, uint16(matchLength), ends, dists, true
+	return toUint16(matchLength), ends, dists, true
 }
 
 func storeInLongestMatchCache(s *blockState, pos, limit int, sublen *[maxMatch + 1]uint16, distance, length uint16, runs *sublenRunCollector) {
@@ -312,11 +312,9 @@ func findLongestMatch(s *blockState, h *hash, array []byte, pos, size, limit int
 	}
 	posLimit := pos + limit
 	sameAtPos := int(h.same[hpos])
-	hhead := h.head
 	hprev := h.prev
-	hval := h.val
 	usingSecondary := false
-	pp := int(hhead[hval])
+	pp := int(h.head[h.val])
 	p := int(hprev[pp])
 	dist := 0
 	if p < pp {
@@ -344,23 +342,21 @@ func findLongestMatch(s *blockState, h *hash, array []byte, pos, size, limit int
 			}
 			if currentLength > int(bestLength) {
 				if sublen != nil {
-					fillUint16s(sublen[int(bestLength)+1:currentLength+1], uint16(dist))
+					fillUint16s(sublen[int(bestLength)+1:currentLength+1], toUint16(dist))
 					if useRuns {
-						runs.record(currentLength, uint16(dist))
+						runs.record(currentLength, toUint16(dist))
 					}
 				}
-				bestDist = uint16(dist)
-				bestLength = uint16(currentLength)
+				bestDist = toUint16(dist)
+				bestLength = toUint16(currentLength)
 				if currentLength >= limit {
 					break
 				}
 			}
 		}
-		if !usingSecondary && int(bestLength) >= sameAtPos && int32(h.val2) == h.hashval2[p] {
+		if !usingSecondary && int(bestLength) >= sameAtPos && toInt32(h.val2) == h.hashval2[p] {
 			usingSecondary = true
-			hhead = h.head2
 			hprev = h.prev2
-			hval = h.val2
 		}
 		pp = p
 		p = int(hprev[p])

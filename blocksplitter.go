@@ -29,10 +29,7 @@ func findMinimum(f func(int, *splitCostContext) float64, context *splitCostConte
 	const num = 9
 	lastBest := largeFloat
 	pos := start
-	for {
-		if end-start <= num {
-			break
-		}
+	for end-start > num {
 		var p [num]int
 		var vp [num]float64
 		for i := range num {
@@ -50,12 +47,17 @@ func findMinimum(f func(int, *splitCostContext) float64, context *splitCostConte
 		if best > lastBest {
 			break
 		}
-		if bestI != 0 {
-			start = p[bestI-1]
+		newStart := start
+		newEnd := end
+		if bestI > 0 {
+			//nolint:gosec // bestI is selected from the fixed-size p array and guarded above.
+			newStart = p[bestI-1]
 		}
-		if bestI != num-1 {
-			end = p[bestI+1]
+		if bestI+1 < num {
+			newEnd = p[bestI+1]
 		}
+		start = newStart
+		end = newEnd
 		pos = p[bestI]
 		lastBest = best
 	}
@@ -95,15 +97,15 @@ func printBlockSplitPoints(lz77 *lz77Store, lz77SplitPoints []int) {
 			pos += length
 		}
 	}
-	fmt.Fprint(os.Stderr, "block split points: ")
+	_, _ = fmt.Fprint(os.Stderr, "block split points: ")
 	for _, p := range splitPoints {
-		fmt.Fprintf(os.Stderr, "%d ", p)
+		_, _ = fmt.Fprintf(os.Stderr, "%d ", p)
 	}
-	fmt.Fprint(os.Stderr, "(hex:")
+	_, _ = fmt.Fprint(os.Stderr, "(hex:")
 	for _, p := range splitPoints {
-		fmt.Fprintf(os.Stderr, " %x", p)
+		_, _ = fmt.Fprintf(os.Stderr, " %x", p)
 	}
-	fmt.Fprintln(os.Stderr, ")")
+	_, _ = fmt.Fprintln(os.Stderr, ")")
 }
 
 func findLargestSplittableBlock(lz77Size int, done []byte, splitPoints []int) (int, int, bool) {
@@ -137,10 +139,7 @@ func blockSplitLZ77WithScratch(options *Options, lz77 *lz77Store, maxBlocks int,
 	lstart, lend := 0, lz77.size
 	splitPoints := make([]int, 0, 8)
 	numBlocks := 1
-	for {
-		if maxBlocks > 0 && numBlocks >= maxBlocks {
-			break
-		}
+	for maxBlocks <= 0 || numBlocks < maxBlocks {
 		ctx := &splitCostContext{lz77: lz77, start: lstart, end: lend, scratch: scratch}
 		llPos, splitCost := findMinimum(splitCost, ctx, lstart+1, lend)
 		origCost := estimateCost(lz77, lstart, lend, scratch)

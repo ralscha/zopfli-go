@@ -83,9 +83,9 @@ var distSymbolExtraBits = [30]uint8{0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6,
 func init() {
 	for dist := 1; dist <= windowSize; dist++ {
 		symbol, extraBits, extraValue := computeDistCode(dist)
-		distSymbolTable[dist] = uint16(symbol)
-		distExtraBitsTable[dist] = uint8(extraBits)
-		distExtraBitsValueTable[dist] = uint16(extraValue)
+		distSymbolTable[dist] = toUint16(symbol)
+		distExtraBitsTable[dist] = toUint8(extraBits)
+		distExtraBitsValueTable[dist] = toUint16(extraValue)
 	}
 }
 

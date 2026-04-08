@@ -63,3 +63,41 @@ func clampNearZero(v float64) float64 {
 func log2(v float64) float64 {
 	return math.Log2(v)
 }
+
+//nolint:gosec // Range is validated before narrowing.
+func toUint16(value int) uint16 {
+	must(value >= 0 && value <= math.MaxUint16, "uint16 overflow")
+	return uint16(value)
+}
+
+//nolint:gosec // Range is validated before narrowing.
+func toUint16FromInt32(value int32) uint16 {
+	must(value >= 0 && value <= math.MaxUint16, "uint16 overflow")
+	return uint16(value)
+}
+
+//nolint:gosec // Range is validated before narrowing.
+func toUint32(value int) uint32 {
+	must(value >= 0 && uint64(value) <= math.MaxUint32, "uint32 overflow")
+	return uint32(value)
+}
+
+//nolint:gosec // Range is validated before narrowing.
+func toInt32(value int) int32 {
+	must(value >= math.MinInt32 && value <= math.MaxInt32, "int32 overflow")
+	return int32(value)
+}
+
+//nolint:gosec // Range is validated before narrowing.
+func toUint8(value int) uint8 {
+	must(value >= 0 && value <= math.MaxUint8, "uint8 overflow")
+	return uint8(value)
+}
+
+func lowByteFromUint32(value uint32) byte {
+	return byte(value & 0xff)
+}
+
+func lowByteFromInt(value int) byte {
+	return byte(value & 0xff)
+}

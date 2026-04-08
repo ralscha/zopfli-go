@@ -72,9 +72,9 @@ func (c *sublenRunCollector) record(length int, dist uint16) {
 	if c == nil || c.count >= cacheLength {
 		return
 	}
-	c.ends[c.count] = uint16(length)
+	c.ends[c.count] = toUint16(length)
 	c.dists[c.count] = dist
-	c.maxLen = uint16(length)
+	c.maxLen = toUint16(length)
 	c.count++
 }
 

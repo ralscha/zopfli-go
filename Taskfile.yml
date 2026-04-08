@@ -6,6 +6,17 @@ tasks:
     cmds:
       - task --list
 
+  format:
+    desc: Format all Go source files
+    cmds:
+      - go fix ./...
+      - go fmt ./...
+
+  lint:
+    desc: Run golangci-lint in a Docker container
+    cmds:
+      - docker run --rm -v {{toSlash .ROOT_DIR}}:/app -w /app golangci/golangci-lint:v2.11.4 golangci-lint run -v --timeout 5m      
+
   build-upstream:
     desc: Build the upstream C zopfli binary
     cmds:

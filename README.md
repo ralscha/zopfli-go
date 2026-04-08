@@ -2,7 +2,7 @@
 
 `zopfli-go` is a pure Go implementation of Zopfli-style compression for `gzip`, `zlib`, and raw `deflate` output.
 
-## Usage
+## Go Usage
 
 ```go
 package main
@@ -29,6 +29,68 @@ func main() {
 	compressed := zopfli.Compress(&options, zopfli.FormatGzip, []byte("hello, tuned world"))
 }
 ```
+
+## CLI Usage
+
+The repository includes a file-oriented CLI for precompressing web assets into adjacent `.gz` files.
+
+```bash
+go run ./cmd/zopfli-go --help
+go run ./cmd/zopfli-go --jobs 8 public
+go run ./cmd/zopfli-go --include-suffix .js --exclude-suffix .min.js public
+go run ./cmd/zopfli-go public assets/app.js
+go run ./cmd/zopfli-go --json public
+```
+
+Behavior:
+
+- File and directory inputs are accepted.
+- Directories are walked recursively.
+- Outputs are written next to the source file as `filename.ext.gz`.
+- Files are skipped when the `.gz` output is larger than or equal to the original.
+- Existing `.gz` files are ignored as inputs.
+
+Supported CLI flags:
+
+- `-j`, `--jobs`
+- `-i`, `--include-suffix` and `-x`, `--exclude-suffix` (repeatable, matched against relative paths or base filenames)
+- `-n`, `--iterations`
+- `--block-splitting`
+- `--block-splitting-last`
+- `--block-splitting-max`
+- `-v`, `--verbose`
+- `-V`, `--verbose-more`
+- `-J`, `--json`
+
+## NPM Wrapper
+
+The npm package wraps the file-oriented CLI rather than exposing buffer-to-buffer compression helpers.
+
+```js
+const { precompress, precompressSync } = require('zopfli-go');
+
+const report = await precompress(['public'], {
+	jobs: 8,
+	includeSuffixes: ['.js', '.css'],
+	excludeSuffixes: ['.min.js'],
+});
+
+const syncReport = precompressSync(['public', 'assets/app.js'], {
+	iterations: 20,
+	verbose: true,
+});
+
+console.log(report.summary.written, syncReport.summary.skippedBigger);
+```
+
+The wrapper exports:
+
+- `precompress(inputs, options)`
+- `precompressSync(inputs, options)`
+- `buildArgs(inputs, options)`
+- `getBinaryPath()`
+
+`inputs` can be a single path or an array of file and directory paths. The wrapper forces `--json`, returns the parsed report object, and throws when the binary exits non-zero.
 
 ## Benchmarks
 

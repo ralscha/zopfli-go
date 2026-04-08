@@ -159,11 +159,12 @@ func lengthLimitedCodeLengths(frequencies []int, n, maxBits int, bitlengths []ui
 	var smallPoolNodes [64]node
 	pool := &nodePool{}
 	neededPool := maxBits * 2 * numSymbols
-	if neededPool <= len(smallPoolNodes) {
+	switch {
+	case neededPool <= len(smallPoolNodes):
 		pool.nodes = smallPoolNodes[:neededPool]
-	} else if scratch != nil {
+	case scratch != nil:
 		pool.nodes = scratch.poolBuffer(neededPool)
-	} else {
+	default:
 		pool.nodes = make([]node, neededPool)
 	}
 	var smallLists [16][2]*node

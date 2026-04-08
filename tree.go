@@ -21,7 +21,7 @@ func lengthsToSymbols(lengths []uint32, maxBits uint32, symbols []uint32) {
 	var code uint32
 	blCount[0] = 0
 	for bits := uint32(1); bits <= maxBits; bits++ {
-		code = (code + uint32(blCount[bits-1])) << 1
+		code = (code + toUint32(blCount[bits-1])) << 1
 		nextCode[bits] = code
 	}
 	for i, length := range lengths {

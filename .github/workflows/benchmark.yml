@@ -13,6 +13,7 @@ on:
       - README.md
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
@@ -23,6 +24,7 @@ jobs:
     env:
       UPSTREAM_ROOT: ${{ github.workspace }}/_upstream/zopfli
       UPSTREAM_EXE: ${{ github.workspace }}/_upstream/zopfli/build-go-bench/zopfli
+      BENCH_FILTER: PureGoGzip
       BENCHTIME: 2x
 
     steps:
@@ -46,6 +48,46 @@ jobs:
       - name: Build upstream C benchmark binary
         run: go run ./cmd/zopfli-task build-upstream -upstream-root "$UPSTREAM_ROOT" -out "$UPSTREAM_EXE"
 
+      - name: Capture raw benchmark output
+        run: go test -run '^$' -bench "$BENCH_FILTER" -benchmem -benchtime "$BENCHTIME" ./... | tee benchmark-purego.txt
+
+      - name: Download latest default-branch benchmark baseline
+        if: github.event_name == 'pull_request'
+        env:
+          ARTIFACT_NAME: benchmark-purego-raw
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-baseline
+          RUN_ID="$(gh api "/repos/$GH_REPO/actions/workflows/benchmark.yml/runs?branch=$DEFAULT_BRANCH&event=push&status=completed&per_page=20" --jq '.workflow_runs[] | select(.conclusion == "success") | .id' | head -n1 || true)"
+          if [ -z "$RUN_ID" ]; then
+            echo 'No successful default-branch benchmark run found.'
+            exit 0
+          fi
+          ARTIFACT_ID="$(gh api "/repos/$GH_REPO/actions/runs/$RUN_ID/artifacts" --jq ".artifacts[] | select(.name == \"$ARTIFACT_NAME\" and .expired == false) | .id" | head -n1 || true)"
+          if [ -z "$ARTIFACT_ID" ]; then
+            echo 'No raw benchmark artifact found on the latest default-branch run.'
+            exit 0
+          fi
+          gh api "/repos/$GH_REPO/actions/artifacts/$ARTIFACT_ID/zip" > benchmark-baseline.zip
+          unzip -p benchmark-baseline.zip benchmark-purego.txt > benchmark-baseline/benchmark-purego.txt
+
+      - name: Compare pull request benchmarks with latest baseline
+        if: github.event_name == 'pull_request' && hashFiles('benchmark-baseline/benchmark-purego.txt') != ''
+        id: compare-benchmarks
+        continue-on-error: true
+        run: go run ./cmd/zopfli-task bench-compare -baseline benchmark-baseline/benchmark-purego.txt -candidate benchmark-purego.txt -max-regression 5 | tee benchmark-regression.md
+
+      - name: Note missing benchmark baseline
+        if: github.event_name == 'pull_request' && hashFiles('benchmark-baseline/benchmark-purego.txt') == ''
+        run: |
+          {
+            echo 'No default-branch raw benchmark baseline is available yet.'
+            echo 'The current run uploaded benchmark-purego.txt and future pull requests will compare against it once a branch push succeeds.'
+          } > benchmark-regression.md
+
       - name: Generate benchmark comparison table
         run: go run ./cmd/zopfli-task bench-summary -upstream-root "$UPSTREAM_ROOT" -upstream-exe "$UPSTREAM_EXE" -benchtime "$BENCHTIME" | tee benchmark-summary.md
 
@@ -63,15 +105,40 @@ jobs:
             else
               echo 'Benchmark summary was not produced because an earlier step failed.'
             fi
+            if [ "${{ github.event_name }}" = 'pull_request' ]; then
+              echo
+              echo '## Benchmark regression check'
+              echo
+              if [ -f benchmark-regression.md ]; then
+                cat benchmark-regression.md
+              else
+                echo 'Benchmark regression comparison was not produced because an earlier step failed.'
+              fi
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload benchmark artifact
+      - name: Upload benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: benchmark-summary
-          path: benchmark-summary.md
+          name: benchmark-results
+          path: |
+            benchmark-purego.txt
+            benchmark-regression.md
+            benchmark-summary.md
           if-no-files-found: ignore
+
+      - name: Upload raw benchmark baseline artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-purego-raw
+          path: benchmark-purego.txt
+          if-no-files-found: ignore
+
+      - name: Fail on benchmark regressions
+        if: github.event_name == 'pull_request' && steps.compare-benchmarks.outcome == 'failure'
+        run: exit 1
 
       - name: Commit README benchmark update
         if: github.event_name != 'pull_request'

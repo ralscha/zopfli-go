@@ -94,11 +94,11 @@ func (h *hash) update(array []byte, pos, end int) {
 	currentVal := int32(val)
 	hashval[hpos] = currentVal
 	if headPos := head[val]; headPos != -1 && hashval[headPos] == currentVal {
-		prev[hpos] = uint16(headPos)
+		prev[hpos] = toUint16FromInt32(headPos)
 	} else {
-		prev[hpos] = uint16(hpos)
+		prev[hpos] = toUint16(hpos)
 	}
-	head[val] = int32(hpos)
+	head[val] = toInt32(hpos)
 
 	same := h.same
 	if same[(pos-1)&windowMask] > 1 {
@@ -115,14 +115,14 @@ func (h *hash) update(array []byte, pos, end int) {
 	head2 := h.head2
 	hashval2 := h.hashval2
 	prev2 := h.prev2
-	currentVal2 := int32(val2)
+	currentVal2 := toInt32(val2)
 	hashval2[hpos] = currentVal2
 	if headPos := head2[val2]; headPos != -1 && hashval2[headPos] == currentVal2 {
-		prev2[hpos] = uint16(headPos)
+		prev2[hpos] = toUint16FromInt32(headPos)
 	} else {
-		prev2[hpos] = uint16(hpos)
+		prev2[hpos] = toUint16(hpos)
 	}
-	head2[val2] = int32(hpos)
+	head2[val2] = toInt32(hpos)
 }
 
 func (h *hash) warmup(array []byte, pos, end int) {

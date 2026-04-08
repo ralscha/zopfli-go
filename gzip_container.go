@@ -12,14 +12,14 @@ func gzipCompress(options *Options, in []byte) []byte {
 	deflate(options, 2, true, in, &writer)
 	crcValue := crc32.ChecksumIEEE(in)
 	writer.out = append(writer.out,
-		byte(crcValue),
-		byte(crcValue>>8),
-		byte(crcValue>>16),
-		byte(crcValue>>24),
-		byte(len(in)),
-		byte(len(in)>>8),
-		byte(len(in)>>16),
-		byte(len(in)>>24),
+		lowByteFromUint32(crcValue),
+		lowByteFromUint32(crcValue>>8),
+		lowByteFromUint32(crcValue>>16),
+		lowByteFromUint32(crcValue>>24),
+		lowByteFromInt(len(in)),
+		lowByteFromInt(len(in)>>8),
+		lowByteFromInt(len(in)>>16),
+		lowByteFromInt(len(in)>>24),
 	)
 	debugf(options, "Original Size: %d, Gzip: %d, Compression: %f%% Removed\n", len(in), len(writer.out), 100.0*float64(len(in)-len(writer.out))/float64(maxInt(len(in), 1)))
 	return writer.bytes()

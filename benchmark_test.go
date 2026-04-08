@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -73,6 +72,7 @@ func loadBenchmarkFiles() map[string]string {
 			continue
 		}
 		path := filepath.Join(dir, entry.Name())
+		//nolint:gosec // Benchmarks read repository-owned fixture files.
 		data, err := os.ReadFile(path)
 		if err != nil {
 			panic(fmt.Sprintf("read benchmark corpus file %s: %v", path, err))
@@ -110,10 +110,13 @@ func BenchmarkPureGoGzip(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(corpus.data)))
 			opt := benchmarkOptions()
+			var out []byte
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_ = Compress(opt, FormatGzip, corpus.data)
+				out = Compress(opt, FormatGzip, corpus.data)
 			}
+			b.StopTimer()
+			assertGzipRoundTrip(b, corpus.name, out, corpus.data)
 		})
 	}
 }
@@ -124,10 +127,13 @@ func BenchmarkPureGoDeflate(b *testing.B) {
 			b.ReportAllocs()
 			b.SetBytes(int64(len(corpus.data)))
 			opt := benchmarkOptions()
+			var out []byte
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				_ = Compress(opt, FormatDeflate, corpus.data)
+				out = Compress(opt, FormatDeflate, corpus.data)
 			}
+			b.StopTimer()
+			assertDeflateRoundTrip(b, corpus.name, out, corpus.data)
 		})
 	}
 }
@@ -144,11 +150,14 @@ func BenchmarkUpstreamCGzip(b *testing.B) {
 			opt := benchmarkOptions()
 			iterationArg := fmt.Sprintf("--i%d", opt.NumIterations)
 			inputFile := writeBenchmarkInputFile(b, corpus.name, corpus.data)
+			var out []byte
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
+				//nolint:gosec // Benchmarks intentionally execute a user-configured local upstream binary.
 				cmd := exec.Command(exe, "-c", "--gzip", iterationArg, inputFile)
 				cmd.Stderr = nil
-				out, err := cmd.Output()
+				var err error
+				out, err = cmd.Output()
 				if err != nil {
 					b.Fatalf("upstream zopfli failed: %v", err)
 				}
@@ -156,6 +165,8 @@ func BenchmarkUpstreamCGzip(b *testing.B) {
 					b.Fatal("upstream zopfli produced empty output")
 				}
 			}
+			b.StopTimer()
+			assertGzipRoundTrip(b, corpus.name, out, corpus.data)
 		})
 	}
 }
@@ -178,6 +189,7 @@ func BenchmarkCompressionRatio(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				goOut = Compress(opt, FormatGzip, corpus.data)
 				if exe != "" {
+					//nolint:gosec // Benchmarks intentionally execute a user-configured local upstream binary.
 					cmd := exec.Command(exe, "-c", "--gzip", iterationArg, inputFile)
 					var err error
 					cOut, err = cmd.Output()
@@ -187,12 +199,12 @@ func BenchmarkCompressionRatio(b *testing.B) {
 				}
 			}
 			b.StopTimer()
-			verifyGzipRoundTrip(b, goOut, corpus.data)
+			assertGzipRoundTrip(b, corpus.name+"/go", goOut, corpus.data)
 			b.ReportMetric(float64(len(goOut)), "go_bytes")
 			b.ReportMetric(float64(len(gzipOut)), "gzip_bytes")
 			b.ReportMetric(float64(len(corpus.data))/float64(len(goOut)), "go_ratio")
 			if exe != "" {
-				verifyGzipRoundTrip(b, cOut, corpus.data)
+				assertGzipRoundTrip(b, corpus.name+"/c", cOut, corpus.data)
 				b.ReportMetric(float64(len(cOut)), "c_bytes")
 				b.ReportMetric(float64(len(corpus.data))/float64(len(cOut)), "c_ratio")
 			}
@@ -214,25 +226,6 @@ func mustCompressStdlibGzip(b *testing.B, data []byte) []byte {
 		b.Fatalf("close stdlib gzip writer: %v", err)
 	}
 	return buffer.Bytes()
-}
-
-func verifyGzipRoundTrip(b *testing.B, compressed, want []byte) {
-	b.Helper()
-	reader, err := gzip.NewReader(bytes.NewReader(compressed))
-	if err != nil {
-		b.Fatalf("open stdlib gzip reader: %v", err)
-	}
-	decompressed, err := io.ReadAll(reader)
-	if err != nil {
-		_ = reader.Close()
-		b.Fatalf("inflate go-zopfli gzip: %v", err)
-	}
-	if err := reader.Close(); err != nil {
-		b.Fatalf("close stdlib gzip reader: %v", err)
-	}
-	if !bytes.Equal(decompressed, want) {
-		b.Fatal("stdlib gzip round-trip mismatch")
-	}
 }
 
 func BenchmarkOptionProfiles(b *testing.B) {
@@ -264,6 +257,8 @@ func BenchmarkOptionProfiles(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					out = Compress(&opt, FormatGzip, corpus.data)
 				}
+				b.StopTimer()
+				assertGzipRoundTrip(b, corpus.name+"/"+profile.name, out, corpus.data)
 				b.ReportMetric(float64(len(out)), "bytes")
 				b.ReportMetric(float64(len(corpus.data))/float64(len(out)), "ratio")
 			})
@@ -273,6 +268,7 @@ func BenchmarkOptionProfiles(b *testing.B) {
 
 func findUpstreamZopfliExe() string {
 	if exe := os.Getenv("ZOPFLI_UPSTREAM_EXE"); exe != "" {
+		//nolint:gosec // Benchmark helper checks a user-provided local executable path.
 		if stat, err := os.Stat(exe); err == nil && !stat.IsDir() {
 			return exe
 		}
@@ -288,7 +284,7 @@ func findUpstreamZopfliExe() string {
 }
 
 func findUpstreamZopfliRoots() []string {
-	var roots []string
+	roots := make([]string, 0, 5)
 	seen := map[string]struct{}{}
 	add := func(path string) {
 		if path == "" {
@@ -325,7 +321,7 @@ func upstreamExecutableCandidates(root string) []string {
 		names = append(names, "zopfli.exe")
 	}
 
-	var candidates []string
+	candidates := make([]string, 0, len(names)*4)
 	for _, name := range names {
 		candidates = append(candidates,
 			filepath.Join(root, "build-go-bench", name),

@@ -32,6 +32,7 @@ const (
 	compilerEnv              = "CC"
 	goCommand                = "go"
 	upstreamBinaryBase       = "zopfli"
+	windowsOS                = "windows"
 	upstreamSourceSentinel   = "src/zopfli/zopfli_bin.c"
 	profileDescriptionPrefix = "PGO: "
 	readmeBenchStartMarker   = "<!-- benchmark-summary:start -->"
@@ -42,6 +43,7 @@ var (
 	benchPurePattern = regexp.MustCompile(`^BenchmarkPureGoGzip/(.+)-\d+\s+\d+\s+(\d+) ns/op\s+([0-9.]+) MB/s`)
 	benchCPattern    = regexp.MustCompile(`^BenchmarkUpstreamCGzip/(.+)-\d+\s+\d+\s+(\d+) ns/op\s+([0-9.]+) MB/s`)
 	benchRatioPrefix = regexp.MustCompile(`^BenchmarkCompressionRatio/(.+)-\d+\s+\d+\s+(\d+) ns/op\s+([0-9.]+) MB/s(.*)$`)
+	benchNsPattern   = regexp.MustCompile(`^(Benchmark[^\s]+)-\d+\s+\d+\s+([0-9.]+) ns/op(?:\s|$)`)
 )
 
 type optionalFloat struct {
@@ -78,6 +80,8 @@ func main() {
 		err = runBenchPGO(os.Args[2:])
 	case "bench-summary":
 		err = runBenchSummary(os.Args[2:])
+	case "bench-compare":
+		err = runBenchCompare(os.Args[2:])
 	case "bench-readme":
 		err = runBenchReadme(os.Args[2:])
 	case "help", "-h", "--help":
@@ -89,26 +93,31 @@ func main() {
 	}
 
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "error:", err)
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprintln(w, "Usage: go run ./cmd/zopfli-task <command> [flags]")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Commands:")
-	fmt.Fprintln(w, "  build-upstream       Build the upstream C zopfli binary")
-	fmt.Fprintln(w, "  bench-upstream       Run Go vs upstream C benchmarks")
-	fmt.Fprintln(w, "  capture-cpu-profile  Capture a benchmark CPU profile and print pprof top")
-	fmt.Fprintln(w, "  bench-pgo            Compare baseline and PGO benchmark runs")
-	fmt.Fprintln(w, "  bench-summary        Print a markdown benchmark summary table")
-	fmt.Fprintln(w, "  bench-readme         Refresh the benchmark section in README.md")
-	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "Environment:")
-	fmt.Fprintln(w, "  ZOPFLI_UPSTREAM_ROOT  Path to the upstream zopfli checkout")
-	fmt.Fprintln(w, "  ZOPFLI_UPSTREAM_EXE   Path to a built upstream zopfli binary")
-	fmt.Fprintln(w, "  CC                    C compiler to use when building upstream")
+	writeLine(w, "Usage: go run ./cmd/zopfli-task <command> [flags]")
+	writeLine(w, "")
+	writeLine(w, "Commands:")
+	writeLine(w, "  build-upstream       Build the upstream C zopfli binary")
+	writeLine(w, "  bench-upstream       Run Go vs upstream C benchmarks")
+	writeLine(w, "  capture-cpu-profile  Capture a benchmark CPU profile and print pprof top")
+	writeLine(w, "  bench-pgo            Compare baseline and PGO benchmark runs")
+	writeLine(w, "  bench-summary        Print a markdown benchmark summary table")
+	writeLine(w, "  bench-compare        Compare raw benchmark outputs and fail on regressions")
+	writeLine(w, "  bench-readme         Refresh the benchmark section in README.md")
+	writeLine(w, "")
+	writeLine(w, "Environment:")
+	writeLine(w, "  ZOPFLI_UPSTREAM_ROOT  Path to the upstream zopfli checkout")
+	writeLine(w, "  ZOPFLI_UPSTREAM_EXE   Path to a built upstream zopfli binary")
+	writeLine(w, "  CC                    C compiler to use when building upstream")
+}
+
+func writeLine(w io.Writer, line string) {
+	_, _ = fmt.Fprintln(w, line)
 }
 
 func runBuildUpstream(args []string) error {
@@ -241,6 +250,35 @@ func runBenchSummary(args []string) error {
 		return err
 	}
 	fmt.Print(summary)
+	return nil
+}
+
+func runBenchCompare(args []string) error {
+	fs := flag.NewFlagSet("bench-compare", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	baseline := fs.String("baseline", "", "path to the baseline benchmark output")
+	candidate := fs.String("candidate", "", "path to the candidate benchmark output")
+	maxRegression := fs.Float64("max-regression", 5, "maximum allowed slowdown percentage before failing")
+	if err := fs.Parse(args); err != nil {
+		return usageError(fs, err)
+	}
+	if strings.TrimSpace(*baseline) == "" {
+		return errors.New("missing -baseline benchmark file")
+	}
+	if strings.TrimSpace(*candidate) == "" {
+		return errors.New("missing -candidate benchmark file")
+	}
+	if *maxRegression < 0 {
+		return errors.New("-max-regression must be >= 0")
+	}
+
+	report, err := compareBenchmarkFiles(*baseline, *candidate, *maxRegression)
+	if report.Markdown != "" {
+		fmt.Print(report.Markdown)
+	}
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -405,6 +443,7 @@ func findRepoRoot() (string, error) {
 	}
 	for current := wd; ; current = filepath.Dir(current) {
 		goMod := filepath.Join(current, "go.mod")
+		//nolint:gosec // Repository task scans local parent directories for this module's go.mod.
 		if data, readErr := os.ReadFile(goMod); readErr == nil && bytes.Contains(data, []byte(repoModulePath)) {
 			return current, nil
 		}
@@ -441,7 +480,7 @@ func resolveUpstreamExe(repoRoot, explicitExe, explicitRoot, compiler string, au
 }
 
 func upstreamRootCandidates(repoRoot, explicitRoot, explicitExe string) []string {
-	var candidates []string
+	candidates := make([]string, 0, 8)
 	add := func(path string) {
 		if path == "" {
 			return
@@ -472,7 +511,7 @@ func upstreamRootCandidates(repoRoot, explicitRoot, explicitExe string) []string
 }
 
 func upstreamExeCandidates(repoRoot, explicitExe, explicitRoot string) []string {
-	var candidates []string
+	candidates := make([]string, 0, 12)
 	add := func(path string) {
 		if path == "" {
 			return
@@ -515,7 +554,7 @@ func executableCandidatesForRoot(root string) []string {
 		names = []string{name, upstreamBinaryBase + ".exe"}
 	}
 
-	var candidates []string
+	candidates := make([]string, 0, 4*len(names))
 	for _, fileName := range names {
 		candidates = append(candidates,
 			filepath.Join(root, "build-go-bench", fileName),
@@ -538,7 +577,8 @@ func buildUpstream(repoRoot, upstreamRoot, outputPath, compilerOverride string, 
 	if outputPath == "" {
 		outputPath = filepath.Join(upstreamRoot, "build-go-bench", upstreamBinaryBase+exeSuffix())
 	}
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+	//nolint:gosec // Build output lives under the explicit upstream checkout or caller-provided path.
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o750); err != nil {
 		return "", err
 	}
 
@@ -564,12 +604,12 @@ func buildUpstream(repoRoot, upstreamRoot, outputPath, compilerOverride string, 
 	if marchNative {
 		args = append(args, "-march=native")
 	}
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != windowsOS {
 		args = append(args, "-lm")
 	}
 	args = append(args, "-o", outputPath)
 
-	fmt.Fprintf(os.Stderr, "Using compiler %s\n", compiler)
+	_, _ = fmt.Fprintf(os.Stderr, "Using compiler %s\n", compiler)
 	_, err = runCommand(upstreamRoot, nil, false, compiler, args...)
 	if err != nil {
 		return "", err
@@ -605,6 +645,7 @@ func resolveCompiler(repoRoot, override string) (string, error) {
 }
 
 func runCommand(dir string, extraEnv map[string]string, capture bool, name string, args ...string) (string, error) {
+	//nolint:gosec // This task runner intentionally executes local build and benchmark tools.
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), flattenEnv(extraEnv)...)
@@ -751,6 +792,170 @@ func parseRatioMetrics(row *summaryRow, metrics string) {
 	}
 }
 
+type benchmarkComparisonReport struct {
+	Markdown          string
+	RegressionCount   int
+	MissingCount      int
+	SharedBenchmarks  int
+	NewBenchmarkCount int
+}
+
+type benchmarkComparisonRow struct {
+	Name      string
+	Baseline  optionalFloat
+	Candidate optionalFloat
+	Status    string
+}
+
+func compareBenchmarkFiles(baselinePath, candidatePath string, maxRegression float64) (benchmarkComparisonReport, error) {
+	//nolint:gosec // Bench compare reads explicit local artifact paths provided by the task runner and CI workflow.
+	baselineContent, err := os.ReadFile(baselinePath)
+	if err != nil {
+		return benchmarkComparisonReport{}, fmt.Errorf("read baseline benchmark file: %w", err)
+	}
+	//nolint:gosec // Bench compare reads explicit local artifact paths provided by the task runner and CI workflow.
+	candidateContent, err := os.ReadFile(candidatePath)
+	if err != nil {
+		return benchmarkComparisonReport{}, fmt.Errorf("read candidate benchmark file: %w", err)
+	}
+
+	baselineMetrics := parseBenchmarkMetrics(string(baselineContent))
+	candidateMetrics := parseBenchmarkMetrics(string(candidateContent))
+	if len(baselineMetrics) == 0 {
+		return benchmarkComparisonReport{}, errors.New("baseline benchmark file does not contain any ns/op records")
+	}
+	if len(candidateMetrics) == 0 {
+		return benchmarkComparisonReport{}, errors.New("candidate benchmark file does not contain any ns/op records")
+	}
+
+	rows, regressions, missing, shared, newCount := compareBenchmarkMetrics(baselineMetrics, candidateMetrics, maxRegression)
+	report := benchmarkComparisonReport{
+		Markdown:          renderBenchmarkComparison(rows, maxRegression, regressions, missing, shared, newCount),
+		RegressionCount:   regressions,
+		MissingCount:      missing,
+		SharedBenchmarks:  shared,
+		NewBenchmarkCount: newCount,
+	}
+	if regressions > 0 || missing > 0 {
+		return report, fmt.Errorf("benchmark regression check failed: %d regressions, %d missing benchmarks", regressions, missing)
+	}
+	return report, nil
+}
+
+func parseBenchmarkMetrics(output string) map[string]optionalFloat {
+	metrics := make(map[string]optionalFloat)
+	for _, record := range benchmarkRecords(output) {
+		matches := benchNsPattern.FindStringSubmatch(record)
+		if len(matches) == 0 {
+			continue
+		}
+		metrics[matches[1]] = parseOptional(matches[2])
+	}
+	return metrics
+}
+
+func compareBenchmarkMetrics(baselineMetrics, candidateMetrics map[string]optionalFloat, maxRegression float64) ([]benchmarkComparisonRow, int, int, int, int) {
+	names := make([]string, 0, len(baselineMetrics)+len(candidateMetrics))
+	seen := make(map[string]struct{}, len(baselineMetrics)+len(candidateMetrics))
+	for name := range baselineMetrics {
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	for name := range candidateMetrics {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	rows := make([]benchmarkComparisonRow, 0, len(names))
+	regressions := 0
+	missing := 0
+	shared := 0
+	newCount := 0
+	for _, name := range names {
+		baseline, hasBaseline := baselineMetrics[name]
+		candidate, hasCandidate := candidateMetrics[name]
+		row := benchmarkComparisonRow{Name: name, Baseline: baseline, Candidate: candidate}
+		switch {
+		case hasBaseline && hasCandidate:
+			shared++
+			delta := slowdownPercent(baseline, candidate)
+			switch {
+			case delta > maxRegression:
+				row.Status = "regression"
+				regressions++
+			case delta < 0:
+				row.Status = "improved"
+			default:
+				row.Status = "ok"
+			}
+		case hasBaseline:
+			row.Status = "missing"
+			missing++
+		default:
+			row.Status = "new"
+			newCount++
+		}
+		rows = append(rows, row)
+	}
+	return rows, regressions, missing, shared, newCount
+}
+
+func renderBenchmarkComparison(rows []benchmarkComparisonRow, maxRegression float64, regressions, missing, shared, newCount int) string {
+	var builder strings.Builder
+	builder.WriteString("Compared raw benchmark outputs. Slowdowns above ")
+	builder.WriteString(formatFloat(maxRegression))
+	builder.WriteString("% fail CI.\n\n")
+	builder.WriteString("| Benchmark | Baseline Ms | Candidate Ms | Delta | Status |\n")
+	builder.WriteString("| --- | ---: | ---: | ---: | --- |\n")
+	for _, row := range rows {
+		builder.WriteString("| ")
+		builder.WriteString(row.Name)
+		builder.WriteString(" | ")
+		builder.WriteString(formatOptionalMillis(row.Baseline))
+		builder.WriteString(" | ")
+		builder.WriteString(formatOptionalMillis(row.Candidate))
+		builder.WriteString(" | ")
+		builder.WriteString(formatDelta(row.Baseline, row.Candidate))
+		builder.WriteString(" | ")
+		builder.WriteString(row.Status)
+		builder.WriteString(" |\n")
+	}
+	builder.WriteString("\n")
+	builder.WriteString("Shared benchmarks: ")
+	builder.WriteString(strconv.Itoa(shared))
+	builder.WriteString(". Regressions: ")
+	builder.WriteString(strconv.Itoa(regressions))
+	builder.WriteString(". Missing: ")
+	builder.WriteString(strconv.Itoa(missing))
+	builder.WriteString(". New: ")
+	builder.WriteString(strconv.Itoa(newCount))
+	builder.WriteString(".\n")
+	return builder.String()
+}
+
+func formatDelta(baseline, candidate optionalFloat) string {
+	if !baseline.ok || !candidate.ok || baseline.value == 0 {
+		return ""
+	}
+	delta := slowdownPercent(baseline, candidate)
+	prefix := "+"
+	if delta < 0 {
+		prefix = ""
+	}
+	return prefix + formatFloat(delta) + "%"
+}
+
+func slowdownPercent(baseline, candidate optionalFloat) float64 {
+	if !baseline.ok || !candidate.ok || baseline.value == 0 {
+		return 0
+	}
+	return ((candidate.value - baseline.value) / baseline.value) * 100
+}
+
 func renderSummary(rows map[string]*summaryRow) string {
 	names := make([]string, 0, len(rows))
 	for name := range rows {
@@ -782,6 +987,7 @@ func renderSummary(rows map[string]*summaryRow) string {
 }
 
 func syncReadmeBenchmarkSection(path, summary string) error {
+	//nolint:gosec // Task updates a repository-local README path selected via CLI flags.
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read README: %w", err)
@@ -798,7 +1004,8 @@ func syncReadmeBenchmarkSection(path, summary string) error {
 	if updated == string(content) {
 		return nil
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+	//nolint:gosec // Task updates a repository-local README path selected via CLI flags.
+	if err := os.WriteFile(path, []byte(updated), 0o600); err != nil {
 		return fmt.Errorf("write README: %w", err)
 	}
 	return nil
@@ -869,7 +1076,7 @@ func formatOptionalMillis(value optionalFloat) string {
 	if !value.ok {
 		return ""
 	}
-	return formatFloat(value.value/1e6, 2)
+	return formatFloat(value.value / 1e6)
 }
 
 func formatOptionalWhole(value optionalFloat) string {
@@ -883,11 +1090,11 @@ func formatRatio(left, right optionalFloat) string {
 	if !left.ok || !right.ok || right.value == 0 {
 		return ""
 	}
-	return formatFloat(left.value/right.value, 2)
+	return formatFloat(left.value / right.value)
 }
 
-func formatFloat(value float64, precision int) string {
-	return strconv.FormatFloat(value, 'f', precision, 64)
+func formatFloat(value float64) string {
+	return strconv.FormatFloat(value, 'f', 2, 64)
 }
 
 func normalizeBenchTime(value string) string {
@@ -909,6 +1116,7 @@ func fileExists(path string) bool {
 	if path == "" {
 		return false
 	}
+	//nolint:gosec // Task checks local file paths discovered from CLI args and repository layout.
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
 }

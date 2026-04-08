@@ -23,7 +23,7 @@ func (w *bitWriter) addBit(bit uint32) {
 	if w.bp == 0 {
 		w.out = append(w.out, 0)
 	}
-	w.out[len(w.out)-1] |= byte(bit << w.bp)
+	w.out[len(w.out)-1] |= lowByteFromUint32(bit << w.bp)
 	w.bp = (w.bp + 1) & 7
 }
 
@@ -33,7 +33,7 @@ func (w *bitWriter) addBits(symbol uint32, length uint32) {
 		if w.bp == 0 {
 			w.out = append(w.out, 0)
 		}
-		w.out[len(w.out)-1] |= byte(bit << w.bp)
+		w.out[len(w.out)-1] |= lowByteFromUint32(bit << w.bp)
 		w.bp = (w.bp + 1) & 7
 	}
 }
@@ -44,7 +44,7 @@ func (w *bitWriter) addHuffmanBits(symbol uint32, length uint32) {
 		if w.bp == 0 {
 			w.out = append(w.out, 0)
 		}
-		w.out[len(w.out)-1] |= byte(bit << w.bp)
+		w.out[len(w.out)-1] |= lowByteFromUint32(bit << w.bp)
 		w.bp = (w.bp + 1) & 7
 	}
 }
@@ -97,7 +97,7 @@ func encodeTree(llLengths, dLengths []uint32, use16, use17, use18 bool, scratch 
 		count := 1
 		if use16 || (symbol == 0 && (use17 || use18)) {
 			for j := i + 1; j < lldTotal; j++ {
-				next := llLengths[0]
+				var next uint32
 				if j < hlit2 {
 					next = llLengths[j]
 				} else {
@@ -115,7 +115,7 @@ func encodeTree(llLengths, dLengths []uint32, use16, use17, use18 bool, scratch 
 				for count >= 11 {
 					count2 := min(count, 138)
 					rle = append(rle, 18)
-					rleBits = append(rleBits, uint32(count2-11))
+					rleBits = append(rleBits, toUint32(count2-11))
 					clCounts[18]++
 					count -= count2
 				}
@@ -124,7 +124,7 @@ func encodeTree(llLengths, dLengths []uint32, use16, use17, use18 bool, scratch 
 				for count >= 3 {
 					count2 := min(count, 10)
 					rle = append(rle, 17)
-					rleBits = append(rleBits, uint32(count2-3))
+					rleBits = append(rleBits, toUint32(count2-3))
 					clCounts[17]++
 					count -= count2
 				}
@@ -138,7 +138,7 @@ func encodeTree(llLengths, dLengths []uint32, use16, use17, use18 bool, scratch 
 			for count >= 3 {
 				count2 := min(count, 6)
 				rle = append(rle, 16)
-				rleBits = append(rleBits, uint32(count2-3))
+				rleBits = append(rleBits, toUint32(count2-3))
 				clCounts[16]++
 				count -= count2
 			}
@@ -223,9 +223,9 @@ func addLZ77Data(lz77 *lz77Store, lstart, lend, expectedDataSize int, llSymbols,
 			lls := getLengthSymbol(litlen)
 			ds := getDistSymbol(dist)
 			w.addHuffmanBits(llSymbols[lls], llLengths[lls])
-			w.addBits(uint32(getLengthExtraBitsValue(litlen)), uint32(getLengthExtraBits(litlen)))
+			w.addBits(toUint32(getLengthExtraBitsValue(litlen)), toUint32(getLengthExtraBits(litlen)))
 			w.addHuffmanBits(dSymbols[ds], dLengths[ds])
-			w.addBits(uint32(getDistExtraBitsValue(dist)), uint32(getDistExtraBits(dist)))
+			w.addBits(toUint32(getDistExtraBitsValue(dist)), toUint32(getDistExtraBits(dist)))
 			testLength += litlen
 		}
 	}
@@ -348,11 +348,12 @@ func optimizeHuffmanForRLE(length int, counts []int, scratch *huffmanScratch) {
 			}
 			stride = 0
 			sum = 0
-			if i < length-3 {
+			switch {
+			case i < length-3:
 				limit = (counts[i] + counts[i+1] + counts[i+2] + counts[i+3] + 2) / 4
-			} else if i < length {
+			case i < length:
 				limit = counts[i]
-			} else {
+			default:
 				limit = 0
 			}
 		}
@@ -444,13 +445,14 @@ func calculateBlockSizeAutoTypeWithScratch(lz77 *lz77Store, lstart, lend int, sc
 		fixedCost = calculateBlockSizeWithScratch(lz77, lstart, lend, 1, scratch)
 	}
 	dynCost := calculateBlockSizeWithScratch(lz77, lstart, lend, 2, scratch)
-	if uncompressedCost < fixedCost && uncompressedCost < dynCost {
+	switch {
+	case uncompressedCost < fixedCost && uncompressedCost < dynCost:
 		return uncompressedCost
-	}
-	if fixedCost < dynCost {
+	case fixedCost < dynCost:
 		return fixedCost
+	default:
+		return dynCost
 	}
-	return dynCost
 }
 
 func addNonCompressedBlock(options *Options, final bool, in []byte, instart, inend int, w *bitWriter) {
@@ -471,10 +473,10 @@ func addNonCompressedBlock(options *Options, final bool, in []byte, instart, ine
 		w.addBit(0)
 		w.addBit(0)
 		w.bp = 0
-		w.addByte(byte(blocksize % 256))
-		w.addByte(byte((blocksize / 256) % 256))
-		w.addByte(byte(nlen % 256))
-		w.addByte(byte((nlen / 256) % 256))
+		w.addByte(lowByteFromInt(blocksize))
+		w.addByte(lowByteFromInt(blocksize / 256))
+		w.addByte(lowByteFromInt(int(nlen)))
+		w.addByte(lowByteFromInt(int(nlen) / 256))
 		w.out = append(w.out, in[pos:pos+blocksize]...)
 		if currentFinal {
 			break
@@ -553,15 +555,16 @@ func addLZ77BlockAutoTypeWithScratch(options *Options, final bool, lz77 *lz77Sto
 		lz77OptimalFixedWithScratch(&s, lz77.data, instart, inend, &fixedStore, scratch)
 		fixedCost = calculateBlockSizeWithScratch(&fixedStore, 0, fixedStore.size, 1, huffScratch)
 	}
-	if uncompressedCost < fixedCost && uncompressedCost < dynCost {
+	switch {
+	case uncompressedCost < fixedCost && uncompressedCost < dynCost:
 		addLZ77BlockWithScratch(options, 0, final, lz77, lstart, lend, expectedDataSize, huffScratch, w)
-	} else if fixedCost < dynCost {
+	case fixedCost < dynCost:
 		if expensiveFixed {
 			addLZ77BlockWithScratch(options, 1, final, &fixedStore, 0, fixedStore.size, expectedDataSize, huffScratch, w)
 		} else {
 			addLZ77BlockWithScratch(options, 1, final, lz77, lstart, lend, expectedDataSize, huffScratch, w)
 		}
-	} else {
+	default:
 		addLZ77BlockWithScratch(options, 2, final, lz77, lstart, lend, expectedDataSize, huffScratch, w)
 	}
 }
