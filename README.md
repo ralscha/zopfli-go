@@ -35,11 +35,11 @@ func main() {
 The repository includes a file-oriented CLI for precompressing web assets into adjacent `.gz` files.
 
 ```bash
-go run ./cmd/zopfli-go --help
-go run ./cmd/zopfli-go --jobs 8 public
-go run ./cmd/zopfli-go --include-suffix .js --exclude-suffix .min.js public
-go run ./cmd/zopfli-go public assets/app.js
-go run ./cmd/zopfli-go --json public
+./zopfli-go --help
+./zopfli-go --jobs 8 public
+./zopfli-go --include-suffix .js --exclude-suffix .min.js public
+./zopfli-go public assets/app.js
+./zopfli-go --json public
 ```
 
 Behavior:
