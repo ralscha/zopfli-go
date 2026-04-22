@@ -48,49 +48,20 @@ Behavior:
 - Directories are walked recursively.
 - Outputs are written next to the source file as `filename.ext.gz`.
 - Files are skipped when the `.gz` output is larger than or equal to the original.
-- Existing `.gz` files are ignored as inputs.
+- Existing `.gz` files are ignored as inputs unless `--allow-gzip-inputs` is set.
 
 Supported CLI flags:
 
 - `-j`, `--jobs`
 - `-i`, `--include-suffix` and `-x`, `--exclude-suffix` (repeatable, matched against relative paths or base filenames)
+- `--allow-gzip-inputs`
 - `-n`, `--iterations`
 - `--block-splitting`
-- `--block-splitting-last`
+- `--block-splitting-last=false|true|both`
 - `--block-splitting-max`
 - `-v`, `--verbose`
 - `-V`, `--verbose-more`
 - `-J`, `--json`
-
-## NPM Wrapper
-
-The npm package wraps the file-oriented CLI rather than exposing buffer-to-buffer compression helpers.
-
-```js
-const { precompress, precompressSync } = require('zopfli-go');
-
-const report = await precompress(['public'], {
-	jobs: 8,
-	includeSuffixes: ['.js', '.css'],
-	excludeSuffixes: ['.min.js'],
-});
-
-const syncReport = precompressSync(['public', 'assets/app.js'], {
-	iterations: 20,
-	verbose: true,
-});
-
-console.log(report.summary.written, syncReport.summary.skippedBigger);
-```
-
-The wrapper exports:
-
-- `precompress(inputs, options)`
-- `precompressSync(inputs, options)`
-- `buildArgs(inputs, options)`
-- `getBinaryPath()`
-
-`inputs` can be a single path or an array of file and directory paths. The wrapper forces `--json`, returns the parsed report object, and throws when the binary exits non-zero.
 
 ## Benchmarks
 
@@ -132,10 +103,4 @@ GitHub releases are produced by GoReleaser from version tags such as `v1.0.0`.
 
 Release assets are archived as `.tar.gz` on Linux and macOS, and as `.zip` on Windows.
 
-The npm package is the root package in this repository. Its implementation lives under `npm/`, and its `postinstall` script downloads the matching GitHub release asset for the current package version.
-
-Publish the npm package separately from a local machine after the matching GitHub release exists:
-
-```bash
-task npm-publish
-```
+Those release assets are consumed directly by `bread-compressor-cli` when its `--use-zopfli-go` flag is enabled.

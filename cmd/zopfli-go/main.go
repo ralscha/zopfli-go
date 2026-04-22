@@ -19,6 +19,12 @@ import (
 
 const gzipExtension = ".gz"
 
+const (
+	blockSplittingLastModeFalse = "false"
+	blockSplittingLastModeTrue  = "true"
+	blockSplittingLastModeBoth  = "both"
+)
+
 type repeatedValues []string
 
 func (v *repeatedValues) String() string {
@@ -34,11 +40,42 @@ func (v *repeatedValues) Set(value string) error {
 }
 
 type config struct {
-	jobs            int
-	jsonOutput      bool
-	includeSuffixes []string
-	excludeSuffixes []string
-	options         zopfli.Options
+	jobs                   int
+	jsonOutput             bool
+	allowGzipInputs        bool
+	includeSuffixes        []string
+	excludeSuffixes        []string
+	blockSplittingLastMode string
+	options                zopfli.Options
+}
+
+type blockSplittingLastValue struct {
+	mode *string
+}
+
+func (v blockSplittingLastValue) String() string {
+	if v.mode == nil || *v.mode == "" {
+		return blockSplittingLastModeFalse
+	}
+	return *v.mode
+}
+
+func (v blockSplittingLastValue) Set(value string) error {
+	normalizedValue := strings.ToLower(strings.TrimSpace(value))
+	switch normalizedValue {
+	case "", blockSplittingLastModeTrue:
+		*v.mode = blockSplittingLastModeTrue
+		return nil
+	case blockSplittingLastModeFalse, blockSplittingLastModeBoth:
+		*v.mode = normalizedValue
+		return nil
+	default:
+		return fmt.Errorf("-block-splitting-last must be false, true, or both")
+	}
+}
+
+func (v blockSplittingLastValue) IsBoolFlag() bool {
+	return true
 }
 
 type fileCandidate struct {
@@ -137,8 +174,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 func parseArgs(args []string) (config, []string, bool, error) {
 	defaultOptions := zopfli.DefaultOptions()
 	cfg := config{
-		jobs:    runtime.GOMAXPROCS(0),
-		options: defaultOptions,
+		jobs:                   runtime.GOMAXPROCS(0),
+		blockSplittingLastMode: blockSplittingLastModeFalse,
+		options:                defaultOptions,
 	}
 
 	var includes repeatedValues
@@ -148,6 +186,7 @@ func parseArgs(args []string) (config, []string, bool, error) {
 	fs.SetOutput(io.Discard)
 	fs.IntVar(&cfg.jobs, "jobs", cfg.jobs, "number of files to compress concurrently")
 	fs.IntVar(&cfg.jobs, "j", cfg.jobs, "number of files to compress concurrently")
+	fs.BoolVar(&cfg.allowGzipInputs, "allow-gzip-inputs", cfg.allowGzipInputs, "allow inputs that already end with .gz")
 	fs.Var(&includes, "include-suffix", "repeatable suffix filter for relative paths or base filenames")
 	fs.Var(&includes, "i", "repeatable suffix filter for relative paths or base filenames")
 	fs.Var(&excludes, "exclude-suffix", "repeatable suffix filter for relative paths or base filenames")
@@ -155,7 +194,7 @@ func parseArgs(args []string) (config, []string, bool, error) {
 	fs.IntVar(&cfg.options.NumIterations, "iterations", cfg.options.NumIterations, "number of optimization iterations")
 	fs.IntVar(&cfg.options.NumIterations, "n", cfg.options.NumIterations, "number of optimization iterations")
 	fs.BoolVar(&cfg.options.BlockSplitting, "block-splitting", cfg.options.BlockSplitting, "enable block splitting")
-	fs.BoolVar(&cfg.options.BlockSplittingLast, "block-splitting-last", cfg.options.BlockSplittingLast, "run block splitting after lz77 optimization")
+	fs.Var(blockSplittingLastValue{mode: &cfg.blockSplittingLastMode}, "block-splitting-last", "run block splitting after lz77 optimization (false, true, or both)")
 	fs.IntVar(&cfg.options.BlockSplittingMax, "block-splitting-max", cfg.options.BlockSplittingMax, "maximum number of block split points")
 	fs.BoolVar(&cfg.options.Verbose, "verbose", cfg.options.Verbose, "print compression progress")
 	fs.BoolVar(&cfg.options.Verbose, "v", cfg.options.Verbose, "print compression progress")
@@ -179,6 +218,7 @@ func parseArgs(args []string) (config, []string, bool, error) {
 
 	cfg.includeSuffixes = append(cfg.includeSuffixes, includes...)
 	cfg.excludeSuffixes = append(cfg.excludeSuffixes, excludes...)
+	cfg.options.BlockSplittingLast = cfg.blockSplittingLastMode == blockSplittingLastModeTrue
 
 	if cfg.jobs <= 0 {
 		return config{}, nil, false, fmt.Errorf("-jobs must be greater than 0")
@@ -218,12 +258,14 @@ func printUsage(w io.Writer) {
 	writeLine(w, "    Repeatable suffix filter for relative paths or base filenames")
 	writeLine(w, "  -x, --exclude-suffix value")
 	writeLine(w, "    Repeatable suffix filter for relative paths or base filenames")
+	writeLine(w, "      --allow-gzip-inputs")
+	writeLine(w, "    Allow inputs that already end with .gz")
 	writeLine(w, "  -n, --iterations int")
 	writeLine(w, "    Number of optimization iterations")
 	writeLine(w, "      --block-splitting")
 	writeLine(w, "    Enable block splitting (default true)")
-	writeLine(w, "      --block-splitting-last")
-	writeLine(w, "    Run block splitting after LZ77 optimization")
+	writeLine(w, "      --block-splitting-last[=false|true|both]")
+	writeLine(w, "    Run block splitting after LZ77 optimization, or try both modes")
 	writeLine(w, "      --block-splitting-max int")
 	writeLine(w, "    Maximum number of block split points")
 	writeLine(w, "  -v, --verbose")
@@ -323,7 +365,7 @@ func discoverCandidates(cfg config, inputs []string) (discoveryResult, error) {
 
 func buildCandidate(rootPath, sourcePath string, cfg config) (fileCandidate, bool, fileResult, error) {
 	baseName := filepath.Base(sourcePath)
-	if strings.EqualFold(filepath.Ext(sourcePath), gzipExtension) {
+	if !cfg.allowGzipInputs && strings.EqualFold(filepath.Ext(sourcePath), gzipExtension) {
 		return fileCandidate{}, false, fileResult{
 			sourcePath: sourcePath,
 			outputPath: sourcePath,
@@ -390,7 +432,7 @@ func processCandidates(cfg config, candidates []fileCandidate) []fileResult {
 	for range jobs {
 		wg.Go(func() {
 			for candidate := range tasks {
-				results <- processCandidate(cfg.options, candidate)
+				results <- processCandidate(cfg, candidate)
 			}
 		})
 	}
@@ -411,13 +453,13 @@ func processCandidates(cfg config, candidates []fileCandidate) []fileResult {
 	return collected
 }
 
-func processCandidate(options zopfli.Options, candidate fileCandidate) fileResult {
+func processCandidate(cfg config, candidate fileCandidate) fileResult {
 	data, err := os.ReadFile(candidate.sourcePath)
 	if err != nil {
 		return fileResult{sourcePath: candidate.sourcePath, outputPath: candidate.outputPath, status: statusError, err: err}
 	}
 
-	compressed := zopfli.Compress(&options, zopfli.FormatGzip, data)
+	compressed := compressCandidate(cfg.options, cfg.blockSplittingLastMode, data)
 	if len(compressed) >= len(data) {
 		return fileResult{
 			sourcePath:     candidate.sourcePath,
@@ -440,6 +482,27 @@ func processCandidate(options zopfli.Options, candidate fileCandidate) fileResul
 		originalSize:   len(data),
 		compressedSize: len(compressed),
 	}
+}
+
+func compressCandidate(options zopfli.Options, blockSplittingLastMode string, data []byte) []byte {
+	if blockSplittingLastMode != blockSplittingLastModeBoth {
+		options.BlockSplittingLast = blockSplittingLastMode == blockSplittingLastModeTrue
+		return zopfli.Compress(&options, zopfli.FormatGzip, data)
+	}
+
+	withoutBlockSplittingLast := options
+	withoutBlockSplittingLast.BlockSplittingLast = false
+	compressedWithout := zopfli.Compress(&withoutBlockSplittingLast, zopfli.FormatGzip, data)
+
+	withBlockSplittingLast := options
+	withBlockSplittingLast.BlockSplittingLast = true
+	compressedWith := zopfli.Compress(&withBlockSplittingLast, zopfli.FormatGzip, data)
+
+	if len(compressedWith) < len(compressedWithout) {
+		return compressedWith
+	}
+
+	return compressedWithout
 }
 
 func emitResults(stdout, stderr io.Writer, results []fileResult, cfg config) (summaryCounts, error) {

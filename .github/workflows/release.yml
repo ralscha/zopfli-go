@@ -27,17 +27,6 @@ jobs:
       - name: Run Go tests
         run: go test ./...
 
-      - name: Verify tag matches package version
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="$(sed -n 's/.*\"version\": \"\([^\"]*\)\",/\1/p' package.json | head -n1)"
-          TAG="$GITHUB_REF_NAME"
-          if [ "$TAG" != "v$VERSION" ]; then
-            echo "tag $TAG does not match package.json version v$VERSION"
-            exit 1
-          fi
-
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:

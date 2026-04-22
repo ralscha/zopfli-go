@@ -73,12 +73,6 @@ tasks:
     cmds:
       - go test ./...
 
-  npm-publish:
-    desc: Publish the npm package
-    cmds:
-      - npm run test:js
-      - npm publish --access public
-
   tag:
     desc: Create a local git tag for a release
     summary: |
