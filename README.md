@@ -48,6 +48,7 @@ Behavior:
 - Directories are walked recursively.
 - Outputs are written next to the source file as `filename.ext.gz`.
 - Files are skipped when the `.gz` output is larger than or equal to the original.
+- When a file is skipped for size, any stale adjacent `.gz` output from an earlier run is removed.
 - Existing `.gz` files are ignored as inputs unless `--allow-gzip-inputs` is set.
 
 Supported CLI flags:
@@ -84,6 +85,8 @@ Benchmark comparisons use the original upstream Zopfli implementation from https
 
 
 ## Development
+
+Use the Go version declared in `go.mod`.
 
 Run the package tests with:
 
