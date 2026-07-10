@@ -234,9 +234,9 @@ func BenchmarkOptionProfiles(b *testing.B) {
 		opt  Options
 	}{
 		{name: "default", opt: DefaultOptions()},
-		{name: "iter3", opt: Options{NumIterations: 3, BlockSplitting: true, BlockSplittingLast: false, BlockSplittingMax: 15}},
-		{name: "iter1", opt: Options{NumIterations: 1, BlockSplitting: true, BlockSplittingLast: false, BlockSplittingMax: 15}},
-		{name: "iter3-nosplit", opt: Options{NumIterations: 3, BlockSplitting: false, BlockSplittingLast: false, BlockSplittingMax: 15}},
+		{name: "iter3", opt: Options{NumIterations: 3, BlockSplitting: true, BlockSplittingMax: 15}},
+		{name: "iter1", opt: Options{NumIterations: 1, BlockSplitting: true, BlockSplittingMax: 15}},
+		{name: "iter3-nosplit", opt: Options{NumIterations: 3, BlockSplitting: false, BlockSplittingMax: 15}},
 	}
 	targets := map[string]struct{}{
 		"web-assets-256k":   {},
@@ -264,6 +264,88 @@ func BenchmarkOptionProfiles(b *testing.B) {
 			})
 		}
 	}
+}
+
+func BenchmarkWorkerProfiles(b *testing.B) {
+	workers := []int{1, 2, 4}
+	for _, corpus := range benchmarkCorpora() {
+		if corpus.name != "mixed-256k" && corpus.name != "web-assets-256k" && corpus.name != "records-logs-256k" {
+			continue
+		}
+		for _, workerCount := range workers {
+			b.Run(fmt.Sprintf("%s/workers-%d", corpus.name, workerCount), func(b *testing.B) {
+				options := FastOptions()
+				b.ReportAllocs()
+				b.SetBytes(int64(len(corpus.data)))
+				var out []byte
+				b.ResetTimer()
+				for range b.N {
+					out = CompressParallel(&options, FormatGzip, corpus.data, workerCount)
+				}
+				b.StopTimer()
+				assertGzipRoundTrip(b, corpus.name, out, corpus.data)
+				b.ReportMetric(float64(len(out)), "bytes")
+			})
+		}
+	}
+}
+
+func BenchmarkMasterBlockWorkers(b *testing.B) {
+	data := []byte(strings.Repeat("master-block-benchmark-0123456789\n", 150_000))
+	for _, workerCount := range []int{1, 2, 4} {
+		b.Run(fmt.Sprintf("workers-%d", workerCount), func(b *testing.B) {
+			options := FastOptions()
+			options.NumIterations = 1
+			options.BlockSplitting = false
+			b.ReportAllocs()
+			b.SetBytes(int64(len(data)))
+			var out []byte
+			b.ResetTimer()
+			for range b.N {
+				out = CompressParallel(&options, FormatGzip, data, workerCount)
+			}
+			b.StopTimer()
+			assertGzipRoundTrip(b, "master-block-workers", out, data)
+			b.ReportMetric(float64(len(out)), "bytes")
+		})
+	}
+}
+
+func BenchmarkFixedLengthRangeRelaxation(b *testing.B) {
+	initial := make([]float64, maxMatch+1)
+	for i := range initial {
+		initial[i] = 100 + float64(i%11)
+	}
+	b.Run("fixed-segmented", func(b *testing.B) {
+		costs := make([]float64, len(initial))
+		lengths := make([]uint16, len(initial))
+		for range b.N {
+			copy(costs, initial)
+			relaxFixedLengthRanges(costs, lengths, minMatch, maxMatch, 70.5, 1234, 79)
+		}
+	})
+	b.Run("fixed-scalar", func(b *testing.B) {
+		costs := make([]float64, len(initial))
+		lengths := make([]uint16, len(initial))
+		for range b.N {
+			copy(costs, initial)
+			for k := minMatch; k <= maxMatch; k++ {
+				if costs[k] <= 79 {
+					continue
+				}
+				cost := 70.5 + float64(getLengthExtraBits(k)+getDistExtraBits(1234)+5)
+				if getLengthSymbol(k) <= 279 {
+					cost += 7
+				} else {
+					cost += 8
+				}
+				if cost < costs[k] {
+					costs[k] = cost
+					lengths[k] = uint16(k)
+				}
+			}
+		}
+	})
 }
 
 func findUpstreamZopfliExe() string {

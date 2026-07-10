@@ -3,6 +3,7 @@ package zopfli
 const (
 	hashShift = 5
 	hashMask  = 32767
+	hashSize  = hashMask + 1
 )
 
 type hash struct {
@@ -19,52 +20,51 @@ type hash struct {
 	same []uint16
 }
 
-func (h *hash) alloc(window int) {
-	if cap(h.head) < 65536 {
-		h.head = make([]int32, 65536)
+func (h *hash) alloc() {
+	if cap(h.head) < hashSize {
+		h.head = make([]int32, hashSize)
 	} else {
-		h.head = h.head[:65536]
+		h.head = h.head[:hashSize]
 	}
-	if cap(h.prev) < window {
-		h.prev = make([]uint16, window)
+	if cap(h.prev) < windowSize {
+		h.prev = make([]uint16, windowSize)
 	} else {
-		h.prev = h.prev[:window]
+		h.prev = h.prev[:windowSize]
 	}
-	if cap(h.hashval) < window {
-		h.hashval = make([]int32, window)
+	if cap(h.hashval) < windowSize {
+		h.hashval = make([]int32, windowSize)
 	} else {
-		h.hashval = h.hashval[:window]
+		h.hashval = h.hashval[:windowSize]
 	}
-	if cap(h.same) < window {
-		h.same = make([]uint16, window)
+	if cap(h.same) < windowSize {
+		h.same = make([]uint16, windowSize)
 	} else {
-		h.same = h.same[:window]
+		h.same = h.same[:windowSize]
 	}
-	if cap(h.head2) < 65536 {
-		h.head2 = make([]int32, 65536)
+	if cap(h.head2) < hashSize {
+		h.head2 = make([]int32, hashSize)
 	} else {
-		h.head2 = h.head2[:65536]
+		h.head2 = h.head2[:hashSize]
 	}
-	if cap(h.prev2) < window {
-		h.prev2 = make([]uint16, window)
+	if cap(h.prev2) < windowSize {
+		h.prev2 = make([]uint16, windowSize)
 	} else {
-		h.prev2 = h.prev2[:window]
+		h.prev2 = h.prev2[:windowSize]
 	}
-	if cap(h.hashval2) < window {
-		h.hashval2 = make([]int32, window)
+	if cap(h.hashval2) < windowSize {
+		h.hashval2 = make([]int32, windowSize)
 	} else {
-		h.hashval2 = h.hashval2[:window]
+		h.hashval2 = h.hashval2[:windowSize]
 	}
-	h.reset(window)
 }
 
-func (h *hash) reset(window int) {
+func (h *hash) reset() {
 	h.val = 0
 	for i := range h.head {
 		h.head[i] = -1
 		h.head2[i] = -1
 	}
-	for i := range window {
+	for i := range windowSize {
 		h.prev[i] = uint16(i)
 		h.hashval[i] = -1
 		h.same[i] = 0

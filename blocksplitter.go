@@ -163,7 +163,7 @@ func blockSplitLZ77WithScratch(options *Options, lz77 *lz77Store, maxBlocks int,
 
 func blockSplitWithScratch(options *Options, in []byte, instart, inend, maxBlocks int, scratch *compressionScratch) []int {
 	var s blockState
-	s.initWithCache(options, instart, inend, false, nil)
+	s.initWithCache(options, instart, inend, false)
 	var store lz77Store
 	store.init(in)
 	var h *hash
@@ -172,7 +172,7 @@ func blockSplitWithScratch(options *Options, in []byte, instart, inend, maxBlock
 	} else {
 		h = &hash{}
 	}
-	h.alloc(windowSize)
+	h.alloc()
 	lz77Greedy(&s, in, instart, inend, &store, h)
 	lz77SplitPoints := blockSplitLZ77WithScratch(options, &store, maxBlocks, huffmanScratchFromCompressionScratch(scratch))
 	result := make([]int, 0, len(lz77SplitPoints))

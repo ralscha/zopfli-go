@@ -17,6 +17,11 @@ type lz77Store struct {
 	size     int
 }
 
+const (
+	lz77StoreDensitySampleBytes = 4096
+	lz77StoreMaxReservedTokens  = 256 * 1024
+)
+
 type blockState struct {
 	options    *Options
 	lmc        *longestMatchCache
@@ -47,16 +52,49 @@ func (s *lz77Store) reset() {
 	s.size = 0
 }
 
-func (s *lz77Store) copyFrom(src *lz77Store) {
-	s.data = src.data
-	s.size = src.size
-	s.litlens = append(s.litlens[:0], src.litlens...)
-	s.dists = append(s.dists[:0], src.dists...)
-	s.pos = append(s.pos[:0], src.pos...)
-	s.llSymbol = append(s.llSymbol[:0], src.llSymbol...)
-	s.dSymbol = append(s.dSymbol[:0], src.dSymbol...)
-	s.llCounts = append(s.llCounts[:0], src.llCounts...)
-	s.dCounts = append(s.dCounts[:0], src.dCounts...)
+func reserveUint16Capacity(values []uint16, capacity int) []uint16 {
+	if cap(values) >= capacity {
+		return values
+	}
+	result := make([]uint16, len(values), capacity)
+	copy(result, values)
+	return result
+}
+
+func reserveIntCapacity(values []int, capacity int) []int {
+	if cap(values) >= capacity {
+		return values
+	}
+	result := make([]int, len(values), capacity)
+	copy(result, values)
+	return result
+}
+
+func roundUpToMultiple(value, multiple int) int {
+	if value == 0 {
+		return 0
+	}
+	return value + multiple - 1 - (value-1)%multiple
+}
+
+func (s *lz77Store) reserveTokens(capacity int) {
+	if capacity <= s.size {
+		return
+	}
+	s.litlens = reserveUint16Capacity(s.litlens, capacity)
+	s.dists = reserveUint16Capacity(s.dists, capacity)
+	s.pos = reserveIntCapacity(s.pos, capacity)
+	s.llSymbol = reserveUint16Capacity(s.llSymbol, capacity)
+	s.dSymbol = reserveUint16Capacity(s.dSymbol, capacity)
+	s.llCounts = reserveIntCapacity(s.llCounts, roundUpToMultiple(capacity, numLL))
+	s.dCounts = reserveIntCapacity(s.dCounts, roundUpToMultiple(capacity, numD))
+}
+
+func literalHeavyStoreReserve(blockSize, consumed, tokenCount int) int {
+	if consumed < lz77StoreDensitySampleBytes || tokenCount < consumed-consumed/4 {
+		return 0
+	}
+	return minInt(blockSize, lz77StoreMaxReservedTokens)
 }
 
 func (s *lz77Store) ensureHistogramChunk(origSize int) {
@@ -161,21 +199,28 @@ func (s *lz77Store) histogram(lstart, lend int, llCounts, dCounts []int) {
 	}
 }
 
-func (b *blockState) initWithCache(options *Options, blockstart, blockend int, addLMC bool, lmc *longestMatchCache) {
+func (b *blockState) initWithCache(options *Options, blockstart, blockend int, addLMC bool) {
 	b.options = options
 	b.blockstart = blockstart
 	b.blockend = blockend
 	if addLMC {
-		if lmc != nil {
-			lmc.init(blockend - blockstart)
-			b.lmc = lmc
-		} else {
-			b.lmc = &longestMatchCache{}
-			b.lmc.init(blockend - blockstart)
-		}
+		b.lmc = &longestMatchCache{}
+		b.lmc.init(blockend - blockstart)
 	} else {
 		b.lmc = nil
 	}
+}
+
+// initForOptimalParse attaches an unbuilt cache. The optimal parser builds it
+// immediately, avoiding the redundant sentinel fill performed by initWithCache.
+func (b *blockState) initForOptimalParse(options *Options, blockstart, blockend int, lmc *longestMatchCache) {
+	b.options = options
+	b.blockstart = blockstart
+	b.blockend = blockend
+	if lmc == nil {
+		lmc = &longestMatchCache{}
+	}
+	b.lmc = lmc
 }
 
 func getLengthScore(length, distance int) int {
@@ -214,38 +259,30 @@ func tryGetFromLongestMatchCache(s *blockState, pos int, limit *int, sublen *[ma
 	}
 	lmcPos := pos - s.blockstart
 	lmc := s.lmc
-	matchLength := int(lmc.length[lmcPos])
-	matchDist := lmc.dist[lmcPos]
-	if matchLength != 0 && matchDist == 0 {
+	matchDist, cachedLength, _, ok := lmc.cachedLongestMatch(lmcPos)
+	if !ok {
 		return 0, 0, false
 	}
-	if *limit != maxMatch && matchLength > *limit {
-		if sublen == nil {
-			return 0, 0, false
-		}
-		maxCached := maxCachedSublenForCache(lmc.sublenMaxLen[lmcPos], matchLength)
-		if maxCached < *limit {
-			return 0, 0, false
-		}
+	matchLength := int(cachedLength)
+	if matchLength == 0 {
+		return 0, 0, true
 	}
-	if sublen == nil {
-		length := toUint16(matchLength)
-		if int(length) > *limit {
-			length = toUint16(*limit)
-		}
-		return matchDist, length, true
-	}
-	maxCached := maxCachedSublenForCache(lmc.sublenMaxLen[lmcPos], matchLength)
-	if matchLength > maxCached {
-		*limit = matchLength
+	if *limit != maxMatch && matchLength > *limit && sublen == nil {
 		return 0, 0, false
 	}
 	length := toUint16(matchLength)
 	if int(length) > *limit {
 		length = toUint16(*limit)
 	}
+	if sublen == nil {
+		return matchDist, length, true
+	}
 	lmc.cacheToSublen(lmcPos, int(length), sublen)
-	return sublen[length], length, true
+	distance, ok := lmc.cachedDistanceForLength(lmcPos, int(length))
+	if !ok {
+		return 0, 0, false
+	}
+	return distance, length, true
 }
 
 func tryGetFromLongestMatchCacheCompact(s *blockState, pos, limit int) (uint16, []uint16, []uint16, bool) {
@@ -254,11 +291,11 @@ func tryGetFromLongestMatchCacheCompact(s *blockState, pos, limit int) (uint16, 
 	}
 	lmcPos := pos - s.blockstart
 	lmc := s.lmc
-	matchLength := int(lmc.length[lmcPos])
-	matchDist := lmc.dist[lmcPos]
-	if matchLength != 0 && matchDist == 0 {
+	_, cachedLength, _, complete := lmc.cachedLongestMatch(lmcPos)
+	if !complete {
 		return 0, nil, nil, false
 	}
+	matchLength := int(cachedLength)
 	maxCached, ends, dists, ok := lmc.compactSublen(lmcPos, matchLength)
 	if !ok || matchLength > maxCached {
 		return 0, nil, nil, false
@@ -269,49 +306,33 @@ func tryGetFromLongestMatchCacheCompact(s *blockState, pos, limit int) (uint16, 
 	return toUint16(matchLength), ends, dists, true
 }
 
-func storeInLongestMatchCache(s *blockState, pos, limit int, sublen *[maxMatch + 1]uint16, distance, length uint16, runs *sublenRunCollector) {
-	if s.lmc == nil || limit != maxMatch || sublen == nil {
+func storeInLongestMatchCache(s *blockState, pos int, fullSearch bool, sublen *[maxMatch + 1]uint16, distance, length, same uint16) {
+	if s.lmc == nil || !fullSearch || sublen == nil {
 		return
 	}
 	lmcPos := pos - s.blockstart
-	cacheAvailable := s.lmc.length[lmcPos] == 0 || s.lmc.dist[lmcPos] != 0
-	if cacheAvailable {
-		return
-	}
-	if length < minMatch {
-		s.lmc.dist[lmcPos] = 0
-		s.lmc.length[lmcPos] = 0
-	} else {
-		s.lmc.dist[lmcPos] = distance
-		s.lmc.length[lmcPos] = length
-	}
-	if runs != nil {
-		s.lmc.storeRuns(lmcPos, runs)
-		return
-	}
-	s.lmc.sublenToCache(sublen, lmcPos, int(length))
+	s.lmc.storeMatch(lmcPos, distance, length, same, sublen, true)
 }
 
 func findLongestMatch(s *blockState, h *hash, array []byte, pos, size, limit int, sublen *[maxMatch + 1]uint16) (uint16, uint16) {
+	fullSearch := limit == maxMatch
 	hpos := pos & windowMask
 	bestDist := uint16(0)
 	bestLength := uint16(1)
-	var runs sublenRunCollector
-	useRuns := s.lmc != nil && limit == maxMatch && sublen != nil
-	if useRuns {
-		runs.reset()
-	}
 	if distance, length, ok := tryGetFromLongestMatchCache(s, pos, &limit, sublen); ok {
 		return distance, length
 	}
+	sameAtPos := int(h.same[hpos])
 	if size-pos < minMatch {
+		if s.lmc != nil && fullSearch {
+			s.lmc.storeMatch(pos-s.blockstart, 0, 0, toUint16(sameAtPos), nil, true)
+		}
 		return 0, 0
 	}
 	if pos+limit > size {
 		limit = size - pos
 	}
 	posLimit := pos + limit
-	sameAtPos := int(h.same[hpos])
 	hprev := h.prev
 	usingSecondary := false
 	pp := int(h.head[h.val])
@@ -343,9 +364,6 @@ func findLongestMatch(s *blockState, h *hash, array []byte, pos, size, limit int
 			if currentLength > int(bestLength) {
 				if sublen != nil {
 					fillUint16s(sublen[int(bestLength)+1:currentLength+1], toUint16(dist))
-					if useRuns {
-						runs.record(currentLength, toUint16(dist))
-					}
 				}
 				bestDist = toUint16(dist)
 				bestLength = toUint16(currentLength)
@@ -373,33 +391,105 @@ func findLongestMatch(s *blockState, h *hash, array []byte, pos, size, limit int
 			break
 		}
 	}
-	var runPtr *sublenRunCollector
-	if useRuns {
-		runPtr = &runs
-	}
-	storeInLongestMatchCache(s, pos, limit, sublen, bestDist, bestLength, runPtr)
+	storeInLongestMatchCache(s, pos, fullSearch, sublen, bestDist, bestLength, toUint16(sameAtPos))
 	return bestDist, bestLength
+}
+
+func buildLongestMatchCache(s *blockState, in []byte, instart, inend int, h *hash) {
+	buildLongestMatchCacheWithRunBudget(s, in, instart, inend, h, runBudgetForBlock(inend-instart))
+}
+
+func buildLongestMatchCacheWithRunBudget(s *blockState, in []byte, instart, inend int, h *hash, runBudget int) {
+	if s.lmc == nil {
+		s.lmc = &longestMatchCache{}
+	}
+	s.blockstart = instart
+	s.blockend = inend
+	s.lmc.initWithRunBudget(inend-instart, runBudget)
+	if instart == inend {
+		s.lmc.built = true
+		return
+	}
+	if h == nil {
+		h = &hash{}
+	}
+	h.alloc()
+	windowStart := 0
+	if instart > windowSize {
+		windowStart = instart - windowSize
+	}
+	h.reset()
+	h.warmup(in, windowStart, inend)
+	for i := windowStart; i < instart; i++ {
+		h.update(in, i, inend)
+	}
+	var sublen [maxMatch + 1]uint16
+	allComplete := true
+	for i := instart; i < inend; i++ {
+		h.update(in, i, inend)
+		findLongestMatch(s, h, in, i, inend, maxMatch, &sublen)
+		if s.lmc.runBudgetExceeded {
+			return
+		}
+		if !s.lmc.entryComplete(i - instart) {
+			allComplete = false
+		}
+	}
+	s.lmc.built = allComplete
 }
 
 func lz77Greedy(s *blockState, in []byte, instart, inend int, store *lz77Store, h *hash) {
 	if instart == inend {
 		return
 	}
-	windowStart := 0
-	if instart > windowSize {
-		windowStart = instart - windowSize
-	}
-	h.reset(windowSize)
-	h.warmup(in, windowStart, inend)
-	for i := windowStart; i < instart; i++ {
-		h.update(in, i, inend)
+	useCompleteCache := s.lmc != nil && s.lmc.fullyBuilt()
+	if !useCompleteCache {
+		windowStart := 0
+		if instart > windowSize {
+			windowStart = instart - windowSize
+		}
+		h.reset()
+		h.warmup(in, windowStart, inend)
+		for i := windowStart; i < instart; i++ {
+			h.update(in, i, inend)
+		}
 	}
 	var prevLength uint16
 	var prevMatch uint16
+	var sublen [maxMatch + 1]uint16
+	var cacheSublen *[maxMatch + 1]uint16
+	if s.lmc != nil && !useCompleteCache {
+		cacheSublen = &sublen
+	}
+	blockSize := inend - instart
+	storeStart := store.size
+	store.reserveTokens(storeStart + minInt(blockSize, lz77StoreDensitySampleBytes))
+	nextDensityCheck := lz77StoreDensitySampleBytes
+	reservedForLiterals := false
 	matchAvailable := false
 	for i := instart; i < inend; i++ {
-		h.update(in, i, inend)
-		dist, leng := findLongestMatch(s, h, in, i, inend, maxMatch, nil)
+		consumed := i - instart
+		if !reservedForLiterals && consumed >= nextDensityCheck {
+			reserve := literalHeavyStoreReserve(blockSize, consumed, store.size-storeStart)
+			switch {
+			case reserve != 0:
+				store.reserveTokens(storeStart + reserve)
+				reservedForLiterals = true
+			case nextDensityCheck <= blockSize/2:
+				nextDensityCheck *= 2
+			default:
+				nextDensityCheck = blockSize
+			}
+		}
+		var dist, leng uint16
+		if useCompleteCache {
+			var ok bool
+			dist, leng, _, ok = s.lmc.cachedLongestMatch(i - s.blockstart)
+			must(ok, "complete longest-match cache entry missing")
+		} else {
+			h.update(in, i, inend)
+			dist, leng = findLongestMatch(s, h, in, i, inend, maxMatch, cacheSublen)
+		}
 		lengthScore := getLengthScore(int(leng), int(dist))
 		prevLengthScore := getLengthScore(int(prevLength), int(prevMatch))
 		if matchAvailable {
@@ -419,7 +509,9 @@ func lz77Greedy(s *blockState, in []byte, instart, inend int, store *lz77Store, 
 				store.storeLitLenDist(leng, dist, i-1)
 				for j := 2; j < int(leng); j++ {
 					i++
-					h.update(in, i, inend)
+					if !useCompleteCache {
+						h.update(in, i, inend)
+					}
 				}
 				continue
 			}
@@ -438,7 +530,9 @@ func lz77Greedy(s *blockState, in []byte, instart, inend int, store *lz77Store, 
 		}
 		for j := 1; j < int(leng); j++ {
 			i++
-			h.update(in, i, inend)
+			if !useCompleteCache {
+				h.update(in, i, inend)
+			}
 		}
 	}
 }

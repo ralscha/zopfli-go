@@ -41,6 +41,7 @@ func (v *repeatedValues) Set(value string) error {
 
 type config struct {
 	jobs                   int
+	workersPerFile         int
 	jsonOutput             bool
 	allowGzipInputs        bool
 	includeSuffixes        []string
@@ -175,6 +176,7 @@ func parseArgs(args []string) (config, []string, bool, error) {
 	defaultOptions := zopfli.DefaultOptions()
 	cfg := config{
 		jobs:                   runtime.GOMAXPROCS(0),
+		workersPerFile:         1,
 		blockSplittingLastMode: blockSplittingLastModeFalse,
 		options:                defaultOptions,
 	}
@@ -186,6 +188,7 @@ func parseArgs(args []string) (config, []string, bool, error) {
 	fs.SetOutput(io.Discard)
 	fs.IntVar(&cfg.jobs, "jobs", cfg.jobs, "number of files to compress concurrently")
 	fs.IntVar(&cfg.jobs, "j", cfg.jobs, "number of files to compress concurrently")
+	fast := fs.Bool("fast", false, "use the speed-oriented compression profile")
 	fs.BoolVar(&cfg.allowGzipInputs, "allow-gzip-inputs", cfg.allowGzipInputs, "allow inputs that already end with .gz")
 	fs.Var(&includes, "include-suffix", "repeatable suffix filter for relative paths or base filenames")
 	fs.Var(&includes, "i", "repeatable suffix filter for relative paths or base filenames")
@@ -193,8 +196,9 @@ func parseArgs(args []string) (config, []string, bool, error) {
 	fs.Var(&excludes, "x", "repeatable suffix filter for relative paths or base filenames")
 	fs.IntVar(&cfg.options.NumIterations, "iterations", cfg.options.NumIterations, "number of optimization iterations")
 	fs.IntVar(&cfg.options.NumIterations, "n", cfg.options.NumIterations, "number of optimization iterations")
+	fs.IntVar(&cfg.workersPerFile, "workers-per-file", cfg.workersPerFile, "maximum parallel block-analysis workers per file")
 	fs.BoolVar(&cfg.options.BlockSplitting, "block-splitting", cfg.options.BlockSplitting, "enable block splitting")
-	fs.Var(blockSplittingLastValue{mode: &cfg.blockSplittingLastMode}, "block-splitting-last", "run block splitting after lz77 optimization (false, true, or both)")
+	fs.Var(blockSplittingLastValue{mode: &cfg.blockSplittingLastMode}, "block-splitting-last", "deprecated compatibility option (false, true, or both)")
 	fs.IntVar(&cfg.options.BlockSplittingMax, "block-splitting-max", cfg.options.BlockSplittingMax, "maximum number of block split points")
 	fs.BoolVar(&cfg.options.Verbose, "verbose", cfg.options.Verbose, "print compression progress")
 	fs.BoolVar(&cfg.options.Verbose, "v", cfg.options.Verbose, "print compression progress")
@@ -215,16 +219,36 @@ func parseArgs(args []string) (config, []string, bool, error) {
 	if helpRequested(args) {
 		return config{}, nil, true, nil
 	}
+	if *fast {
+		fastOptions := zopfli.FastOptions()
+		if !flagWasSet(fs, "iterations", "n") {
+			cfg.options.NumIterations = fastOptions.NumIterations
+		}
+		if !flagWasSet(fs, "block-splitting") {
+			cfg.options.BlockSplitting = fastOptions.BlockSplitting
+		}
+		if !flagWasSet(fs, "block-splitting-max") {
+			cfg.options.BlockSplittingMax = fastOptions.BlockSplittingMax
+		}
+	}
+	if !flagWasSet(fs, "jobs", "j") && cfg.workersPerFile > 1 {
+		// Keep default total compression fan-out near GOMAXPROCS when each
+		// file can use multiple block-analysis workers. An explicit --jobs
+		// value remains an intentional override.
+		cfg.jobs = max(1, runtime.GOMAXPROCS(0)/cfg.workersPerFile)
+	}
 
 	cfg.includeSuffixes = append(cfg.includeSuffixes, includes...)
 	cfg.excludeSuffixes = append(cfg.excludeSuffixes, excludes...)
-	cfg.options.BlockSplittingLast = cfg.blockSplittingLastMode == blockSplittingLastModeTrue
 
 	if cfg.jobs <= 0 {
 		return config{}, nil, false, fmt.Errorf("-jobs must be greater than 0")
 	}
-	if cfg.options.NumIterations < 0 {
-		return config{}, nil, false, fmt.Errorf("-iterations must be >= 0")
+	if cfg.options.NumIterations <= 0 {
+		return config{}, nil, false, fmt.Errorf("-iterations must be greater than 0")
+	}
+	if cfg.workersPerFile < 1 || cfg.workersPerFile > zopfli.MaxCompressionWorkers {
+		return config{}, nil, false, fmt.Errorf("-workers-per-file must be between 1 and %d", zopfli.MaxCompressionWorkers)
 	}
 	if cfg.options.BlockSplittingMax < 0 {
 		return config{}, nil, false, fmt.Errorf("-block-splitting-max must be >= 0")
@@ -234,6 +258,20 @@ func parseArgs(args []string) (config, []string, bool, error) {
 	}
 
 	return cfg, fs.Args(), false, nil
+}
+
+func flagWasSet(fs *flag.FlagSet, names ...string) bool {
+	wanted := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		wanted[name] = struct{}{}
+	}
+	found := false
+	fs.Visit(func(f *flag.Flag) {
+		if _, ok := wanted[f.Name]; ok {
+			found = true
+		}
+	})
+	return found
 }
 
 func helpRequested(args []string) bool {
@@ -253,7 +291,9 @@ func printUsage(w io.Writer) {
 	writeLine(w, "")
 	writeLine(w, "Flags:")
 	writeLine(w, "  -j, --jobs int")
-	writeLine(w, "    Number of files to compress concurrently (default: logical CPU count)")
+	writeLine(w, "    Number of files to compress concurrently (default: logical CPU count divided by workers per file)")
+	writeLine(w, "      --fast")
+	writeLine(w, "    Use the speed-oriented compression profile (3 iterations)")
 	writeLine(w, "  -i, --include-suffix value")
 	writeLine(w, "    Repeatable suffix filter for relative paths or base filenames")
 	writeLine(w, "  -x, --exclude-suffix value")
@@ -262,10 +302,12 @@ func printUsage(w io.Writer) {
 	writeLine(w, "    Allow inputs that already end with .gz")
 	writeLine(w, "  -n, --iterations int")
 	writeLine(w, "    Number of optimization iterations")
+	writeLine(w, "      --workers-per-file int")
+	writeLine(w, fmt.Sprintf("    Parallel block-analysis workers per file, 1-%d (default 1)", zopfli.MaxCompressionWorkers))
 	writeLine(w, "      --block-splitting")
 	writeLine(w, "    Enable block splitting (default true)")
 	writeLine(w, "      --block-splitting-last[=false|true|both]")
-	writeLine(w, "    Run block splitting after LZ77 optimization, or try both modes")
+	writeLine(w, "    Deprecated compatibility option; all values use the same hybrid splitter")
 	writeLine(w, "      --block-splitting-max int")
 	writeLine(w, "    Maximum number of block split points")
 	writeLine(w, "  -v, --verbose")
@@ -293,14 +335,12 @@ func discoverCandidates(cfg config, inputs []string) (discoveryResult, error) {
 			return discoveryResult{}, fmt.Errorf("resolve path %q: %w", input, err)
 		}
 
-		//nolint:gosec // CLI inputs are explicit user-selected paths for local/CI asset processing.
 		info, err := os.Stat(absInput)
 		if err != nil {
 			return discoveryResult{}, fmt.Errorf("stat %q: %w", input, err)
 		}
 
 		if info.IsDir() {
-			//nolint:gosec // CLI inputs are explicit user-selected roots to walk recursively.
 			err = filepath.WalkDir(absInput, func(path string, entry fs.DirEntry, walkErr error) error {
 				if walkErr != nil {
 					return walkErr
@@ -459,7 +499,7 @@ func processCandidate(cfg config, candidate fileCandidate) fileResult {
 		return fileResult{sourcePath: candidate.sourcePath, outputPath: candidate.outputPath, status: statusError, err: err}
 	}
 
-	compressed := compressCandidate(cfg.options, cfg.blockSplittingLastMode, data)
+	compressed := compressCandidate(cfg.options, cfg.blockSplittingLastMode, data, cfg.workersPerFile)
 	if len(compressed) >= len(data) {
 		return fileResult{
 			sourcePath:     candidate.sourcePath,
@@ -484,25 +524,16 @@ func processCandidate(cfg config, candidate fileCandidate) fileResult {
 	}
 }
 
-func compressCandidate(options zopfli.Options, blockSplittingLastMode string, data []byte) []byte {
-	if blockSplittingLastMode != blockSplittingLastModeBoth {
-		options.BlockSplittingLast = blockSplittingLastMode == blockSplittingLastModeTrue
-		return zopfli.Compress(&options, zopfli.FormatGzip, data)
-	}
+func compressCandidate(options zopfli.Options, blockSplittingLastMode string, data []byte, numWorkers int) []byte {
+	return compressCandidateWith(options, blockSplittingLastMode, data, numWorkers, zopfli.CompressParallel)
+}
 
-	withoutBlockSplittingLast := options
-	withoutBlockSplittingLast.BlockSplittingLast = false
-	compressedWithout := zopfli.Compress(&withoutBlockSplittingLast, zopfli.FormatGzip, data)
-
-	withBlockSplittingLast := options
-	withBlockSplittingLast.BlockSplittingLast = true
-	compressedWith := zopfli.Compress(&withBlockSplittingLast, zopfli.FormatGzip, data)
-
-	if len(compressedWith) < len(compressedWithout) {
-		return compressedWith
-	}
-
-	return compressedWithout
+func compressCandidateWith(options zopfli.Options, blockSplittingLastMode string, data []byte, numWorkers int, compress func(*zopfli.Options, zopfli.Format, []byte, int) []byte) []byte {
+	_ = blockSplittingLastMode
+	// Upstream keeps BlockSplittingLast only for API compatibility. The core
+	// owns the hybrid split decision, so running both compatibility values would
+	// perform the same compression twice.
+	return compress(&options, zopfli.FormatGzip, data, numWorkers)
 }
 
 func emitResults(stdout, stderr io.Writer, results []fileResult, cfg config) (summaryCounts, error) {

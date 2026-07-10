@@ -2,14 +2,14 @@ package zopfli
 
 import "hash/crc32"
 
-func gzipCompress(options *Options, in []byte) []byte {
+func gzipCompress(options *Options, in []byte, numWorkers int) []byte {
 	writer := newBitWriter(estimateOutputCap(len(in)) + 18)
 	writer.out = append(writer.out,
 		31, 139, 8, 0,
 		0, 0, 0, 0,
 		2, 3,
 	)
-	deflate(options, 2, true, in, &writer)
+	deflate(options, 2, in, &writer, numWorkers)
 	crcValue := crc32.ChecksumIEEE(in)
 	writer.out = append(writer.out,
 		lowByteFromUint32(crcValue),

@@ -1,5 +1,7 @@
 package zopfli
 
+import "sync"
+
 type bitWriter struct {
 	out []byte
 	bp  uint8
@@ -551,7 +553,7 @@ func addLZ77BlockAutoTypeWithScratch(options *Options, final bool, lz77 *lz77Sto
 		if scratch != nil {
 			lmc = &scratch.lmc
 		}
-		s.initWithCache(options, instart, inend, true, lmc)
+		s.initForOptimalParse(options, instart, inend, lmc)
 		lz77OptimalFixedWithScratch(&s, lz77.data, instart, inend, &fixedStore, scratch)
 		fixedCost = calculateBlockSizeWithScratch(&fixedStore, 0, fixedStore.size, 1, huffScratch)
 	}
@@ -569,98 +571,219 @@ func addLZ77BlockAutoTypeWithScratch(options *Options, final bool, lz77 *lz77Sto
 	}
 }
 
-func deflatePart(options *Options, btype int, final bool, in []byte, instart, inend int, w *bitWriter) {
-	if btype == 0 {
-		addNonCompressedBlock(options, final, in, instart, inend, w)
-		return
+type optimizedBlock struct {
+	store lz77Store
+	cost  float64
+}
+
+func compressionWorkers(options *Options, numWorkers, tasks int) int {
+	if tasks <= 1 || options == nil || numWorkers <= 1 || options.Verbose || options.VerboseMore {
+		return 1
 	}
-	if btype == 1 {
-		var store lz77Store
-		store.init(in)
-		var scratch compressionScratch
-		var s blockState
-		s.initWithCache(options, instart, inend, true, &scratch.lmc)
-		lz77OptimalFixedWithScratch(&s, in, instart, inend, &store, &scratch)
-		addLZ77BlockWithScratch(options, btype, final, &store, 0, store.size, 0, &scratch.huffman, w)
-		return
+	return min(normalizeCompressionWorkers(numWorkers), tasks)
+}
+
+func optimizeBlock(options *Options, in []byte, start, end int, scratch *compressionScratch) optimizedBlock {
+	var state blockState
+	var store lz77Store
+	store.init(in)
+	state.initForOptimalParse(options, start, end, &scratch.lmc)
+	lz77OptimalWithScratch(&state, in, start, end, options.NumIterations, &store, scratch)
+	return optimizedBlock{
+		store: store,
+		cost:  calculateBlockSizeAutoTypeWithScratch(&store, 0, store.size, &scratch.huffman),
 	}
-	splitpointsUncompressed := []int(nil)
-	var scratch compressionScratch
-	if options != nil && options.BlockSplitting {
-		splitpointsUncompressed = blockSplitWithScratch(options, in, instart, inend, options.BlockSplittingMax, &scratch)
-	}
-	var lz77 lz77Store
-	lz77.init(in)
-	totalCost := 0.0
-	splitPoints := make([]int, len(splitpointsUncompressed))
-	for i := 0; i <= len(splitpointsUncompressed); i++ {
+}
+
+func optimizeSplitBlockBatch(options *Options, in []byte, instart, inend int, splitpoints []int, first, count, numWorkers int) []optimizedBlock {
+	results := make([]optimizedBlock, count)
+	workers := compressionWorkers(options, numWorkers, count)
+	blockRange := func(index int) (int, int) {
 		start := instart
-		if i > 0 {
-			start = splitpointsUncompressed[i-1]
+		if index > 0 {
+			start = splitpoints[index-1]
 		}
 		end := inend
-		if i < len(splitpointsUncompressed) {
-			end = splitpointsUncompressed[i]
+		if index < len(splitpoints) {
+			end = splitpoints[index]
 		}
+		return start, end
+	}
+	tasks := make(chan int)
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Go(func() {
+			var scratch compressionScratch
+			for offset := range tasks {
+				start, end := blockRange(first + offset)
+				results[offset] = optimizeBlock(options, in, start, end, &scratch)
+			}
+		})
+	}
+	for i := range count {
+		tasks <- i
+	}
+	close(tasks)
+	wg.Wait()
+	return results
+}
+
+type deflatePartPlan struct {
+	btype       int
+	instart     int
+	inend       int
+	lz77        lz77Store
+	splitPoints []int
+}
+
+func prepareDeflatePart(options *Options, btype int, in []byte, instart, inend int, scratch *compressionScratch, numWorkers int) deflatePartPlan {
+	plan := deflatePartPlan{btype: btype, instart: instart, inend: inend}
+	if scratch == nil {
+		scratch = &compressionScratch{}
+	}
+	if btype == 0 {
+		return plan
+	}
+	if btype == 1 {
+		plan.lz77.init(in)
 		var s blockState
-		var store lz77Store
-		store.init(in)
-		s.initWithCache(options, start, end, true, &scratch.lmc)
-		lz77OptimalWithScratch(&s, in, start, end, options.NumIterations, &store, &scratch)
-		totalCost += calculateBlockSizeAutoTypeWithScratch(&store, 0, store.size, &scratch.huffman)
-		lz77.appendStore(&store)
-		if i < len(splitpointsUncompressed) {
-			splitPoints[i] = lz77.size
+		s.initForOptimalParse(options, instart, inend, &scratch.lmc)
+		lz77OptimalFixedWithScratch(&s, in, instart, inend, &plan.lz77, scratch)
+		return plan
+	}
+	splitpointsUncompressed := []int(nil)
+	if options != nil && options.BlockSplitting {
+		splitpointsUncompressed = blockSplitWithScratch(options, in, instart, inend, options.BlockSplittingMax, scratch)
+	}
+	plan.lz77.init(in)
+	totalCost := 0.0
+	plan.splitPoints = make([]int, len(splitpointsUncompressed))
+	if compressionWorkers(options, numWorkers, len(splitpointsUncompressed)+1) == 1 {
+		for i := 0; i <= len(splitpointsUncompressed); i++ {
+			start := instart
+			if i > 0 {
+				start = splitpointsUncompressed[i-1]
+			}
+			end := inend
+			if i < len(splitpointsUncompressed) {
+				end = splitpointsUncompressed[i]
+			}
+			optimized := optimizeBlock(options, in, start, end, scratch)
+			totalCost += optimized.cost
+			plan.lz77.appendStore(&optimized.store)
+			if i < len(splitpointsUncompressed) {
+				plan.splitPoints[i] = plan.lz77.size
+			}
+		}
+	} else {
+		blocks := len(splitpointsUncompressed) + 1
+		workers := compressionWorkers(options, numWorkers, blocks)
+		for first := 0; first < blocks; first += workers {
+			batch := optimizeSplitBlockBatch(options, in, instart, inend, splitpointsUncompressed, first, min(workers, blocks-first), numWorkers)
+			for offset := range batch {
+				index := first + offset
+				totalCost += batch[offset].cost
+				plan.lz77.appendStore(&batch[offset].store)
+				batch[offset].store = lz77Store{}
+				if index < len(splitpointsUncompressed) {
+					plan.splitPoints[index] = plan.lz77.size
+				}
+			}
 		}
 	}
 	if options != nil && options.BlockSplitting && len(splitpointsUncompressed) > 1 {
-		splitPoints2 := blockSplitLZ77WithScratch(options, &lz77, options.BlockSplittingMax, &scratch.huffman)
+		splitPoints2 := blockSplitLZ77WithScratch(options, &plan.lz77, options.BlockSplittingMax, &scratch.huffman)
 		totalCost2 := 0.0
 		for i := 0; i <= len(splitPoints2); i++ {
 			start := 0
 			if i > 0 {
 				start = splitPoints2[i-1]
 			}
-			end := lz77.size
+			end := plan.lz77.size
 			if i < len(splitPoints2) {
 				end = splitPoints2[i]
 			}
-			totalCost2 += calculateBlockSizeAutoTypeWithScratch(&lz77, start, end, &scratch.huffman)
+			totalCost2 += calculateBlockSizeAutoTypeWithScratch(&plan.lz77, start, end, &scratch.huffman)
 		}
 		if totalCost2 < totalCost {
-			splitPoints = splitPoints2
+			plan.splitPoints = splitPoints2
 		}
 	}
-	for i := 0; i <= len(splitPoints); i++ {
+	return plan
+}
+
+func writeDeflatePartPlan(options *Options, final bool, in []byte, plan *deflatePartPlan, scratch *compressionScratch, w *bitWriter) {
+	if scratch == nil {
+		scratch = &compressionScratch{}
+	}
+	if plan.btype == 0 {
+		addNonCompressedBlock(options, final, in, plan.instart, plan.inend, w)
+		return
+	}
+	if plan.btype == 1 {
+		addLZ77BlockWithScratch(options, plan.btype, final, &plan.lz77, 0, plan.lz77.size, 0, &scratch.huffman, w)
+		return
+	}
+	for i := 0; i <= len(plan.splitPoints); i++ {
 		start := 0
 		if i > 0 {
-			start = splitPoints[i-1]
+			start = plan.splitPoints[i-1]
 		}
-		end := lz77.size
-		if i < len(splitPoints) {
-			end = splitPoints[i]
+		end := plan.lz77.size
+		if i < len(plan.splitPoints) {
+			end = plan.splitPoints[i]
 		}
-		addLZ77BlockAutoTypeWithScratch(options, i == len(splitPoints) && final, &lz77, start, end, 0, &scratch, w)
+		addLZ77BlockAutoTypeWithScratch(options, i == len(plan.splitPoints) && final, &plan.lz77, start, end, 0, scratch, w)
 	}
 }
 
-func deflate(options *Options, btype int, final bool, in []byte, w *bitWriter) {
+func deflatePart(options *Options, btype int, final bool, in []byte, instart, inend int, w *bitWriter, numWorkers int) {
+	var scratch compressionScratch
+	plan := prepareDeflatePart(options, btype, in, instart, inend, &scratch, numWorkers)
+	writeDeflatePartPlan(options, final, in, &plan, &scratch, w)
+}
+
+func deflate(options *Options, btype int, in []byte, w *bitWriter, numWorkers int) {
 	if len(in) == 0 {
-		if final {
-			w.addBits(1, 1)
-		} else {
-			w.addBits(0, 1)
-		}
+		w.addBits(1, 1)
 		w.addBits(1, 2)
 		w.addBits(0, 7)
 		return
 	}
 	if masterBlockSize == 0 {
-		deflatePart(options, btype, final, in, 0, len(in), w)
+		deflatePart(options, btype, true, in, 0, len(in), w, numWorkers)
 		return
 	}
-	for i := 0; i < len(in); i += masterBlockSize {
-		end := min(i+masterBlockSize, len(in))
-		deflatePart(options, btype, final && end == len(in), in, i, end, w)
+	parts := 1 + (len(in)-1)/masterBlockSize
+	workers := compressionWorkers(options, numWorkers, parts)
+	if workers == 1 {
+		for partIndex := range parts {
+			start := partIndex * masterBlockSize
+			end := start + min(masterBlockSize, len(in)-start)
+			deflatePart(options, btype, end == len(in), in, start, end, w, numWorkers)
+		}
+		return
+	}
+
+	var emitScratch compressionScratch
+	for batchStart := 0; batchStart < parts; batchStart += workers {
+		batchSize := min(workers, parts-batchStart)
+		plans := make([]deflatePartPlan, batchSize)
+		var wg sync.WaitGroup
+		for offset := range batchSize {
+			partIndex := batchStart + offset
+			start := partIndex * masterBlockSize
+			end := start + min(masterBlockSize, len(in)-start)
+			wg.Go(func() {
+				var scratch compressionScratch
+				plans[offset] = prepareDeflatePart(options, btype, in, start, end, &scratch, 1)
+			})
+		}
+		wg.Wait()
+		for offset := range plans {
+			partIndex := batchStart + offset
+			writeDeflatePartPlan(options, partIndex == parts-1, in, &plans[offset], &emitScratch, w)
+			plans[offset] = deflatePartPlan{}
+		}
 	}
 }

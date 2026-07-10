@@ -6,6 +6,7 @@ var (
 	distSymbolTable         [windowSize + 1]uint16
 	distExtraBitsTable      [windowSize + 1]uint8
 	distExtraBitsValueTable [windowSize + 1]uint16
+	lengthSymbolRunEnd      [maxMatch + 1]uint16
 )
 
 var lengthExtraBitsTable = [259]uint8{
@@ -86,6 +87,17 @@ func init() {
 		distSymbolTable[dist] = toUint16(symbol)
 		distExtraBitsTable[dist] = toUint8(extraBits)
 		distExtraBitsValueTable[dist] = toUint16(extraValue)
+	}
+	for start := minMatch; start <= maxMatch; {
+		symbol := lengthSymbolTable[start]
+		end := start
+		for end < maxMatch && lengthSymbolTable[end+1] == symbol {
+			end++
+		}
+		for length := start; length <= end; length++ {
+			lengthSymbolRunEnd[length] = uint16(end)
+		}
+		start = end + 1
 	}
 }
 

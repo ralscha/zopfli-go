@@ -26,9 +26,45 @@ func main() {
 	options.NumIterations = 5
 	options.BlockSplittingMax = 8
 
-	compressed := zopfli.Compress(&options, zopfli.FormatGzip, []byte("hello, tuned world"))
+	compressed := zopfli.CompressParallel(&options, zopfli.FormatGzip, []byte("hello, tuned world"), 4)
 }
 ```
+
+### Fast profile
+
+`FastOptions()` starts with `DefaultOptions()` and changes exactly one setting:
+`NumIterations` is reduced from `15` to `3`.
+
+| Setting | Default | Fast |
+| --- | ---: | ---: |
+| Optimal parsing iterations | 15 | 3 |
+| Block splitting | enabled | enabled |
+| Maximum split points | 15 | 15 |
+
+Fewer parsing iterations reduce CPU time, but can produce a slightly larger
+compressed file because fewer candidate parses are evaluated. The output is
+still a normal, deterministic gzip, zlib, or deflate stream. Fast mode does not
+enable parallelism; use `CompressParallel` or CLI `--workers-per-file`
+separately when compressing a large input.
+
+```go
+options := zopfli.FastOptions()
+compressed := zopfli.Compress(&options, zopfli.FormatGzip, data)
+```
+
+The CLI `--fast` flag applies the same three-iteration profile. Explicit
+`--iterations`, `--block-splitting`, and `--block-splitting-max` flags take
+precedence over the profile.
+
+`Compress` is serial. `CompressParallel` bounds parallel analysis inside one
+file; keep its worker count at `1` when compressing many files concurrently, or
+increase it for a small number of large inputs. Worker counts are capped at
+`MaxCompressionWorkers` (currently `4`). For each active 1 MiB input block, the
+match cache uses about 12 MiB of metadata plus 4 bytes per cached distance run,
+with a 60 MiB hard ceiling; parsing and token buffers require additional memory.
+The CLI divides its default `--jobs` value by `--workers-per-file` so the two
+levels of concurrency do not multiply by default; an explicit `--jobs` value
+overrides that safeguard.
 
 ## CLI Usage
 
@@ -37,6 +73,8 @@ The repository includes a file-oriented CLI for precompressing web assets into a
 ```bash
 ./zopfli-go --help
 ./zopfli-go --jobs 8 public
+./zopfli-go --fast public
+./zopfli-go --fast --jobs 1 --workers-per-file 4 large-asset.js
 ./zopfli-go --include-suffix .js --exclude-suffix .min.js public
 ./zopfli-go public assets/app.js
 ./zopfli-go --json public
@@ -54,11 +92,13 @@ Behavior:
 Supported CLI flags:
 
 - `-j`, `--jobs`
+- `--fast`
 - `-i`, `--include-suffix` and `-x`, `--exclude-suffix` (repeatable, matched against relative paths or base filenames)
 - `--allow-gzip-inputs`
 - `-n`, `--iterations`
+- `--workers-per-file`
 - `--block-splitting`
-- `--block-splitting-last=false|true|both`
+- `--block-splitting-last=false|true|both` (deprecated compatibility option)
 - `--block-splitting-max`
 - `-v`, `--verbose`
 - `-V`, `--verbose-more`

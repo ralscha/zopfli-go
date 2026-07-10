@@ -1,23 +1,57 @@
 package zopfli
 
 type longestMatchCache struct {
-	length       []uint16
-	dist         []uint16
-	sublenEnds   []uint16
-	sublenDists  []uint16
-	sublenMaxLen []uint16
+	built             bool
+	runBudgetExceeded bool
+	runBudget         int
+	length            []uint16
+	dist              []uint16
+	same              []uint16
+	runCount          []uint16
+	runStart          []uint32
+	runs              []sublenRun
+	// The legacy compact accessor reuses these 32 bytes instead of retaining
+	// 32 bytes of inline run storage for every input position.
+	compactEnds  [cacheLength]uint16
+	compactDists [cacheLength]uint16
 }
 
-type sublenRunCollector struct {
-	count  int
-	maxLen uint16
-	ends   [cacheLength]uint16
-	dists  [cacheLength]uint16
+type sublenRun struct {
+	end  uint16
+	dist uint16
 }
 
-const sublenCacheStride = cacheLength
+type sublenRunView struct {
+	runs []sublenRun
+}
+
+const (
+	cachedRunsPerInputByte = 12 // Twelve 4-byte runs preserve the former 60-byte/input worst-case bound.
+	// Invalid DEFLATE match lengths encode cache state without separate flag slices.
+	cacheLengthNoMatch    = uint16(0)
+	cacheLengthUnfilled   = uint16(1)
+	cacheLengthIncomplete = uint16(2)
+)
 
 func (lmc *longestMatchCache) init(blocksize int) {
+	lmc.initWithRunBudget(blocksize, runBudgetForBlock(blocksize))
+}
+
+func runBudgetForBlock(blocksize int) int {
+	if blocksize <= 0 {
+		return 0
+	}
+	maxIntValue := int(^uint(0) >> 1)
+	if blocksize > maxIntValue/cachedRunsPerInputByte {
+		return maxIntValue
+	}
+	return blocksize * cachedRunsPerInputByte
+}
+
+func (lmc *longestMatchCache) initWithRunBudget(blocksize, runBudget int) {
+	lmc.built = false
+	lmc.runBudgetExceeded = false
+	lmc.runBudget = maxInt(0, runBudget)
 	if cap(lmc.length) < blocksize {
 		lmc.length = make([]uint16, blocksize)
 	} else {
@@ -27,30 +61,43 @@ func (lmc *longestMatchCache) init(blocksize int) {
 		lmc.dist = make([]uint16, blocksize)
 	} else {
 		lmc.dist = lmc.dist[:blocksize]
-		clear(lmc.dist)
 	}
-	cacheSize := sublenCacheStride * blocksize
-	if cap(lmc.sublenEnds) < cacheSize {
-		lmc.sublenEnds = make([]uint16, cacheSize)
+	if cap(lmc.same) < blocksize {
+		lmc.same = make([]uint16, blocksize)
 	} else {
-		lmc.sublenEnds = lmc.sublenEnds[:cacheSize]
-		clear(lmc.sublenEnds)
+		lmc.same = lmc.same[:blocksize]
 	}
-	if cap(lmc.sublenDists) < cacheSize {
-		lmc.sublenDists = make([]uint16, cacheSize)
+	if cap(lmc.runCount) < blocksize {
+		lmc.runCount = make([]uint16, blocksize)
 	} else {
-		lmc.sublenDists = lmc.sublenDists[:cacheSize]
-		clear(lmc.sublenDists)
+		lmc.runCount = lmc.runCount[:blocksize]
 	}
-	if cap(lmc.sublenMaxLen) < blocksize {
-		lmc.sublenMaxLen = make([]uint16, blocksize)
+	if cap(lmc.runStart) < blocksize {
+		lmc.runStart = make([]uint32, blocksize)
 	} else {
-		lmc.sublenMaxLen = lmc.sublenMaxLen[:blocksize]
-		clear(lmc.sublenMaxLen)
+		lmc.runStart = lmc.runStart[:blocksize]
 	}
 	for i := range lmc.length {
-		lmc.length[i] = 1
+		lmc.length[i] = cacheLengthUnfilled
 	}
+	if cap(lmc.runs) > lmc.runBudget {
+		lmc.runs = lmc.runs[:0:lmc.runBudget]
+	} else {
+		lmc.runs = lmc.runs[:0]
+	}
+}
+
+func (lmc *longestMatchCache) fullyBuilt() bool {
+	return lmc != nil && lmc.built
+}
+
+func (lmc *longestMatchCache) entryFilled(pos int) bool {
+	return lmc.length[pos] != cacheLengthUnfilled
+}
+
+func (lmc *longestMatchCache) entryComplete(pos int) bool {
+	length := lmc.length[pos]
+	return length != cacheLengthUnfilled && length != cacheLengthIncomplete
 }
 
 func fillUint16s(dst []uint16, value uint16) {
@@ -63,101 +110,142 @@ func fillUint16s(dst []uint16, value uint16) {
 	}
 }
 
-func (c *sublenRunCollector) reset() {
-	c.count = 0
-	c.maxLen = 0
+func (v sublenRunView) count() int {
+	return len(v.runs)
 }
 
-func (c *sublenRunCollector) record(length int, dist uint16) {
-	if c == nil || c.count >= cacheLength {
-		return
-	}
-	c.ends[c.count] = toUint16(length)
-	c.dists[c.count] = dist
-	c.maxLen = toUint16(length)
-	c.count++
+func (v sublenRunView) at(index int) (uint16, uint16) {
+	run := v.runs[index]
+	return run.end, run.dist
 }
 
-func (lmc *longestMatchCache) cacheEntry(pos int) ([]uint16, []uint16) {
-	base := pos * sublenCacheStride
-	return lmc.sublenEnds[base : base+sublenCacheStride], lmc.sublenDists[base : base+sublenCacheStride]
+func (lmc *longestMatchCache) ensureRunCapacity(required int) bool {
+	if required > lmc.runBudget {
+		lmc.runBudgetExceeded = true
+		return false
+	}
+	if cap(lmc.runs) >= required {
+		return true
+	}
+	newCapacity := cap(lmc.runs) * 2
+	if newCapacity < 64 {
+		newCapacity = minInt(64, lmc.runBudget)
+	}
+	if newCapacity < required {
+		newCapacity = required
+	}
+	if newCapacity > lmc.runBudget {
+		newCapacity = lmc.runBudget
+	}
+	resized := make([]sublenRun, len(lmc.runs), newCapacity)
+	copy(resized, lmc.runs)
+	lmc.runs = resized
+	return true
 }
 
-func maxCachedSublenForCache(maxCached uint16, length int) int {
-	if maxCached == 0 {
-		return 0
-	}
-	maxLength := int(maxCached)
-	if maxLength > length {
-		return length
-	}
-	return maxLength
+func (lmc *longestMatchCache) storeEmptyRuns(pos int) {
+	lmc.runCount[pos] = 0
+	lmc.runStart[pos] = toUint32(len(lmc.runs))
 }
 
-func (lmc *longestMatchCache) sublenToCache(sublen *[maxMatch + 1]uint16, pos, length int) {
-	if cacheLength == 0 || length < 3 {
-		return
-	}
-	ends, dists := lmc.cacheEntry(pos)
-	j := 0
-	bestLength := 0
-	for i := 3; i <= length; i++ {
+func (lmc *longestMatchCache) storeRunsFromSublen(pos int, sublen *[maxMatch + 1]uint16, length int) bool {
+	start := len(lmc.runs)
+	for i := minMatch; i <= length; i++ {
 		if i == length || sublen[i] != sublen[i+1] {
-			dist := sublen[i]
-			ends[j] = uint16(i)
-			dists[j] = dist
-			bestLength = i
-			j++
-			if j >= cacheLength {
-				break
+			if len(lmc.runs) == cap(lmc.runs) && !lmc.ensureRunCapacity(len(lmc.runs)+1) {
+				lmc.runs = lmc.runs[:start]
+				lmc.storeEmptyRuns(pos)
+				return false
 			}
+			lmc.runs = append(lmc.runs, sublenRun{end: toUint16(i), dist: sublen[i]})
 		}
 	}
-	lmc.sublenMaxLen[pos] = uint16(bestLength)
-	if j < cacheLength {
-		for ; j < cacheLength; j++ {
-			ends[j] = uint16(bestLength)
-			dists[j] = 0
-		}
-	}
+	count := len(lmc.runs) - start
+	lmc.runCount[pos] = toUint16(count)
+	lmc.runStart[pos] = toUint32(start)
+	return count != 0
 }
 
-func (lmc *longestMatchCache) storeRuns(pos int, runs *sublenRunCollector) {
-	ends, dists := lmc.cacheEntry(pos)
-	count := 0
-	maxLen := uint16(0)
-	if runs != nil {
-		count = runs.count
-		maxLen = runs.maxLen
-		copy(ends, runs.ends[:count])
-		copy(dists, runs.dists[:count])
+func (lmc *longestMatchCache) runView(pos int) sublenRunView {
+	count := int(lmc.runCount[pos])
+	start := int(lmc.runStart[pos])
+	return sublenRunView{runs: lmc.runs[start : start+count]}
+}
+
+func (lmc *longestMatchCache) storeMatch(pos int, distance, length, same uint16, sublen *[maxMatch + 1]uint16, complete bool) bool {
+	if lmc.entryFilled(pos) {
+		return lmc.entryComplete(pos)
 	}
-	lmc.sublenMaxLen[pos] = maxLen
-	if count < cacheLength {
-		for ; count < cacheLength; count++ {
-			ends[count] = maxLen
-			dists[count] = 0
+	if length < minMatch {
+		length = cacheLengthNoMatch
+		distance = 0
+	}
+	runsStored := false
+	if complete && length >= minMatch {
+		if sublen == nil {
+			complete = false
+		} else {
+			complete = lmc.storeRunsFromSublen(pos, sublen, int(length))
+			runsStored = true
 		}
 	}
+	if !runsStored {
+		lmc.storeEmptyRuns(pos)
+	}
+	lmc.dist[pos] = distance
+	lmc.same[pos] = same
+	if complete {
+		lmc.length[pos] = length
+	} else {
+		lmc.length[pos] = cacheLengthIncomplete
+	}
+	return complete
+}
+
+func (lmc *longestMatchCache) cachedLongestMatch(pos int) (uint16, uint16, uint16, bool) {
+	if !lmc.entryComplete(pos) {
+		return 0, 0, 0, false
+	}
+	return lmc.dist[pos], lmc.length[pos], lmc.same[pos], true
+}
+
+func (lmc *longestMatchCache) cachedSublenRuns(pos int) (sublenRunView, bool) {
+	if !lmc.entryComplete(pos) {
+		return sublenRunView{}, false
+	}
+	return lmc.runView(pos), true
+}
+
+func (lmc *longestMatchCache) cachedDistanceForLength(pos, length int) (uint16, bool) {
+	if length < minMatch || !lmc.entryComplete(pos) || length > int(lmc.length[pos]) {
+		return 0, false
+	}
+	if length == int(lmc.length[pos]) {
+		return lmc.dist[pos], true
+	}
+	runs := lmc.runView(pos)
+	for i := 0; i < runs.count(); i++ {
+		end, distance := runs.at(i)
+		if length <= int(end) {
+			return distance, true
+		}
+	}
+	return 0, false
 }
 
 func (lmc *longestMatchCache) cacheToSublen(pos, length int, sublen *[maxMatch + 1]uint16) {
-	if cacheLength == 0 || length < 3 {
+	if length < minMatch {
 		return
 	}
-	maxLength := maxCachedSublenForCache(lmc.sublenMaxLen[pos], length)
-	if maxLength == 0 {
-		return
-	}
-	ends, dists := lmc.cacheEntry(pos)
-	prevLength := 3
-	for j := range cacheLength {
-		currLength := min(int(ends[j]), maxLength)
-		dist := dists[j]
+	runs := lmc.runView(pos)
+	prevLength := minMatch
+	for i := 0; i < runs.count(); i++ {
+		end, dist := runs.at(i)
+		currLength := min(int(end), length)
 		if currLength >= prevLength {
 			fillUint16s(sublen[prevLength:currLength+1], dist)
 		}
-		if currLength == maxLength {
+		if currLength == length {
 			break
 		}
 		prevLength = currLength + 1
@@ -165,13 +253,19 @@ func (lmc *longestMatchCache) cacheToSublen(pos, length int, sublen *[maxMatch +
 }
 
 func (lmc *longestMatchCache) compactSublen(pos, length int) (int, []uint16, []uint16, bool) {
-	if cacheLength == 0 || length < 3 {
+	count := int(lmc.runCount[pos])
+	if length < minMatch || !lmc.entryComplete(pos) || count == 0 || count > cacheLength {
 		return 0, nil, nil, false
 	}
-	maxLength := maxCachedSublenForCache(lmc.sublenMaxLen[pos], length)
-	if maxLength == 0 {
-		return 0, nil, nil, false
+	runs := lmc.runView(pos)
+	maxLength := minInt(int(runs.runs[count-1].end), length)
+	for i := range count {
+		lmc.compactEnds[i] = runs.runs[i].end
+		lmc.compactDists[i] = runs.runs[i].dist
 	}
-	ends, dists := lmc.cacheEntry(pos)
-	return maxLength, ends, dists, true
+	for i := count; i < cacheLength; i++ {
+		lmc.compactEnds[i] = toUint16(maxLength)
+		lmc.compactDists[i] = 0
+	}
+	return maxLength, lmc.compactEnds[:], lmc.compactDists[:], true
 }

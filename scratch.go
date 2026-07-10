@@ -22,6 +22,10 @@ type compressionScratch struct {
 	huffman huffmanScratch
 	hash    hash
 	lmc     longestMatchCache
+
+	lengthArray []uint16
+	path        []uint16
+	costs       []float64
 }
 
 func resizeInts(buf []int, n int) []int {
@@ -38,6 +42,31 @@ func resizeUint32s(buf []uint32, n int) []uint32 {
 		return make([]uint32, n)
 	}
 	return buf[:n]
+}
+
+func resizeUint16s(buf []uint16, n int) []uint16 {
+	if cap(buf) < n {
+		return make([]uint16, n)
+	}
+	return buf[:n]
+}
+
+func resizeFloat64s(buf []float64, n int) []float64 {
+	if cap(buf) < n {
+		return make([]float64, n)
+	}
+	return buf[:n]
+}
+
+func (s *compressionScratch) optimalBuffers(blocksize int) ([]uint16, *[]uint16, []float64) {
+	s.lengthArray = resizeUint16s(s.lengthArray, blocksize+1)
+	if cap(s.path) < blocksize/2+1 {
+		s.path = make([]uint16, 0, blocksize/2+1)
+	} else {
+		s.path = s.path[:0]
+	}
+	s.costs = resizeFloat64s(s.costs, blocksize+1)
+	return s.lengthArray, &s.path, s.costs
 }
 
 func resizeBools(buf []bool, n int) []bool {

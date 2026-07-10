@@ -62,15 +62,6 @@ func randomizeStatFreqs(state *ranState, stats *symbolStats) {
 	stats.litlens[256] = 1
 }
 
-func clearStatFreqs(stats *symbolStats) {
-	for i := range numLL {
-		stats.litlens[i] = 0
-	}
-	for i := range numD {
-		stats.dists[i] = 0
-	}
-}
-
 func getCostStat(litlen, dist uint16, stats *symbolStats) float64 {
 	if dist == 0 {
 		return stats.llSymbols[litlen]
@@ -102,26 +93,53 @@ func getCostModelMinCostStat(stats *symbolStats) float64 {
 	return getCostStat(toUint16(bestLength), toUint16(bestDist), stats)
 }
 
+func relaxFixedLengthRanges(costs []float64, lengths []uint16, start, end int, baseCost float64, distValue int, minCostAdd float64) {
+	distExtraPlusFive := getDistExtraBits(distValue) + 5
+	for start <= end {
+		rangeEnd := minInt(int(lengthSymbolRunEnd[start]), end)
+		lengthSymbol := getLengthSymbol(start)
+		newCost := baseCost + float64(getLengthExtraBits(start)+distExtraPlusFive)
+		if lengthSymbol <= 279 {
+			newCost += 7
+		} else {
+			newCost += 8
+		}
+		for k := start; k <= rangeEnd; k++ {
+			if costs[k] <= minCostAdd {
+				continue
+			}
+			if newCost < costs[k] {
+				costs[k] = newCost
+				lengths[k] = toUint16(k)
+			}
+		}
+		start = rangeEnd + 1
+	}
+}
+
 func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *symbolStats, lengthArray []uint16, h *hash, costs []float64) float64 {
 	blocksize := inend - instart
-	windowStart := 0
-	if instart > windowSize {
-		windowStart = instart - windowSize
-	}
+	useCompleteCache := s.lmc != nil && s.lmc.fullyBuilt()
 	minCost := getCostModelMinCostStat(stats)
 	llSymbols := stats.llSymbols[:]
 	dSymbols := stats.dSymbols[:]
 	var literalCosts [256]float64
 	copy(literalCosts[:], llSymbols[:256])
-	var lengthCosts [259]float64
+	var lengthCosts [maxMatch + 1]float64
 	for length := 3; length <= maxMatch; length++ {
 		lengthCosts[length] = float64(getLengthExtraBits(length)) + llSymbols[getLengthSymbol(length)]
 	}
 	maxMatchCost := lengthCosts[maxMatch] + dSymbols[0]
-	h.reset(windowSize)
-	h.warmup(in, windowStart, inend)
-	for i := windowStart; i < instart; i++ {
-		h.update(in, i, inend)
+	if !useCompleteCache {
+		windowStart := 0
+		if instart > windowSize {
+			windowStart = instart - windowSize
+		}
+		h.reset()
+		h.warmup(in, windowStart, inend)
+		for i := windowStart; i < instart; i++ {
+			h.update(in, i, inend)
+		}
 	}
 	for i := 1; i < blocksize+1; i++ {
 		costs[i] = largeFloat
@@ -131,15 +149,44 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 	var sublen [259]uint16
 	for i := instart; i < inend; i++ {
 		j := i - instart
-		h.update(in, i, inend)
-		if int(h.same[i&windowMask]) > maxMatch*2 && i > instart+maxMatch+1 && i+maxMatch*2+1 < inend && int(h.same[(i-maxMatch)&windowMask]) > maxMatch {
-			symbolCost := maxMatchCost
-			for range maxMatch {
-				costs[j+maxMatch] = costs[j] + symbolCost
-				lengthArray[j+maxMatch] = maxMatch
-				i++
-				j++
-				h.update(in, i, inend)
+		cachedLength := uint16(0)
+		sameAtPos := 0
+		if useCompleteCache {
+			_, length, same, ok := s.lmc.cachedLongestMatch(i - s.blockstart)
+			if !ok {
+				panic("zopfli: complete longest-match cache entry missing")
+			}
+			cachedLength = length
+			sameAtPos = int(same)
+		} else {
+			h.update(in, i, inend)
+			sameAtPos = int(h.same[i&windowMask])
+		}
+		if sameAtPos > maxMatch*2 && i > instart+maxMatch+1 && i+maxMatch*2+1 < inend {
+			sameBefore := 0
+			if useCompleteCache {
+				_, _, same, ok := s.lmc.cachedLongestMatch(i - maxMatch - s.blockstart)
+				if !ok {
+					panic("zopfli: complete longest-match cache history missing")
+				}
+				sameBefore = int(same)
+			} else {
+				sameBefore = int(h.same[(i-maxMatch)&windowMask])
+			}
+			if sameBefore > maxMatch {
+				symbolCost := maxMatchCost
+				for range maxMatch {
+					costs[j+maxMatch] = costs[j] + symbolCost
+					lengthArray[j+maxMatch] = maxMatch
+					i++
+					j++
+					if !useCompleteCache {
+						h.update(in, i, inend)
+					}
+				}
+				if useCompleteCache {
+					_, cachedLength, _, _ = s.lmc.cachedLongestMatch(i - s.blockstart)
+				}
 			}
 		}
 		baseCost := costs[j]
@@ -151,6 +198,66 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 				costsAtJ[1] = newCost
 				lengthsAtJ[1] = 1
 			}
+		}
+		if useCompleteCache {
+			kend := minInt(int(cachedLength), inend-i)
+			runs, ok := s.lmc.cachedSublenRuns(i - s.blockstart)
+			if !ok {
+				panic("zopfli: complete longest-match runs missing")
+			}
+			minCostAdd := minCost + baseCost
+			prevLength := minMatch
+			for idx := 0; idx < runs.count(); idx++ {
+				end, distance := runs.at(idx)
+				runEnd := minInt(int(end), kend)
+				if runEnd < prevLength {
+					continue
+				}
+				runStart := prevLength
+				for runStart <= runEnd && costsAtJ[runStart] <= minCostAdd {
+					runStart++
+				}
+				if runStart <= runEnd {
+					distInt := int(distance)
+					distSymbol := getDistSymbol(distInt)
+					basePlusDist := baseCost + float64(getDistExtraBits(distInt)) + dSymbols[distSymbol]
+					k := runStart
+					for ; k+3 <= runEnd; k += 4 {
+						cost0 := basePlusDist + lengthCosts[k]
+						if cost0 < costsAtJ[k] {
+							costsAtJ[k] = cost0
+							lengthsAtJ[k] = toUint16(k)
+						}
+						cost1 := basePlusDist + lengthCosts[k+1]
+						if cost1 < costsAtJ[k+1] {
+							costsAtJ[k+1] = cost1
+							lengthsAtJ[k+1] = uint16(k + 1)
+						}
+						cost2 := basePlusDist + lengthCosts[k+2]
+						if cost2 < costsAtJ[k+2] {
+							costsAtJ[k+2] = cost2
+							lengthsAtJ[k+2] = uint16(k + 2)
+						}
+						cost3 := basePlusDist + lengthCosts[k+3]
+						if cost3 < costsAtJ[k+3] {
+							costsAtJ[k+3] = cost3
+							lengthsAtJ[k+3] = uint16(k + 3)
+						}
+					}
+					for ; k <= runEnd; k++ {
+						newCost := basePlusDist + lengthCosts[k]
+						if newCost < costsAtJ[k] {
+							costsAtJ[k] = newCost
+							lengthsAtJ[k] = toUint16(k)
+						}
+					}
+				}
+				if runEnd == kend {
+					break
+				}
+				prevLength = runEnd + 1
+			}
+			continue
 		}
 		if cachedLeng, ends, dists, ok := tryGetFromLongestMatchCacheCompact(s, i, maxMatch); ok {
 			kend := minInt(int(cachedLeng), inend-i)
@@ -176,7 +283,7 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 						newCost := basePlusDist + lengthCosts[k]
 						if newCost < costsAtJ[k] {
 							costsAtJ[k] = newCost
-							lengthsAtJ[k] = uint16(k)
+							lengthsAtJ[k] = toUint16(k)
 						}
 					}
 				}
@@ -209,7 +316,7 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 				newCost := basePlusDist + lengthCosts[k]
 				if newCost < costsAtJ[k] {
 					costsAtJ[k] = newCost
-					lengthsAtJ[k] = uint16(k)
+					lengthsAtJ[k] = toUint16(k)
 				}
 			}
 		}
@@ -219,15 +326,18 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 
 func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArray []uint16, h *hash, costs []float64) float64 {
 	blocksize := inend - instart
-	windowStart := 0
-	if instart > windowSize {
-		windowStart = instart - windowSize
-	}
+	useCompleteCache := s.lmc != nil && s.lmc.fullyBuilt()
 	const minCost = 12.0
-	h.reset(windowSize)
-	h.warmup(in, windowStart, inend)
-	for i := windowStart; i < instart; i++ {
-		h.update(in, i, inend)
+	if !useCompleteCache {
+		windowStart := 0
+		if instart > windowSize {
+			windowStart = instart - windowSize
+		}
+		h.reset()
+		h.warmup(in, windowStart, inend)
+		for i := windowStart; i < instart; i++ {
+			h.update(in, i, inend)
+		}
 	}
 	for i := 1; i < blocksize+1; i++ {
 		costs[i] = largeFloat
@@ -237,7 +347,9 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 	var sublen [259]uint16
 	for i := instart; i < inend; i++ {
 		j := i - instart
-		h.update(in, i, inend)
+		if !useCompleteCache {
+			h.update(in, i, inend)
+		}
 		baseCost := costs[j]
 		literalCost := 9.0
 		if in[i] <= 143 {
@@ -247,6 +359,33 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 		if newLiteralCost < costs[j+1] {
 			costs[j+1] = newLiteralCost
 			lengthArray[j+1] = 1
+		}
+		if useCompleteCache {
+			_, cachedLength, _, ok := s.lmc.cachedLongestMatch(i - s.blockstart)
+			if !ok {
+				panic("zopfli: complete longest-match cache entry missing")
+			}
+			kend := minInt(int(cachedLength), inend-i)
+			runs, ok := s.lmc.cachedSublenRuns(i - s.blockstart)
+			if !ok {
+				panic("zopfli: complete longest-match runs missing")
+			}
+			minCostAdd := minCost + baseCost
+			prevLength := minMatch
+			for idx := 0; idx < runs.count(); idx++ {
+				end, distance := runs.at(idx)
+				runEnd := minInt(int(end), kend)
+				if runEnd < prevLength {
+					continue
+				}
+				distValue := int(distance)
+				relaxFixedLengthRanges(costs[j:], lengthArray[j:], prevLength, runEnd, baseCost, distValue, minCostAdd)
+				if runEnd == kend {
+					break
+				}
+				prevLength = runEnd + 1
+			}
+			continue
 		}
 		if cachedLeng, ends, dists, ok := tryGetFromLongestMatchCacheCompact(s, i, maxMatch); ok {
 			kend := minInt(int(cachedLeng), inend-i)
@@ -261,22 +400,7 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 					continue
 				}
 				distValue := int(dists[idx])
-				for k := prevLength; k <= runEnd; k++ {
-					if costs[j+k] <= minCostAdd {
-						continue
-					}
-					lengthSymbol := getLengthSymbol(k)
-					cost := baseCost + float64(getLengthExtraBits(k)+getDistExtraBits(distValue)+5)
-					if lengthSymbol <= 279 {
-						cost += 7
-					} else {
-						cost += 8
-					}
-					if cost < costs[j+k] {
-						costs[j+k] = cost
-						lengthArray[j+k] = uint16(k)
-					}
-				}
+				relaxFixedLengthRanges(costs[j:], lengthArray[j:], prevLength, runEnd, baseCost, distValue, minCostAdd)
 				if runEnd == kend {
 					break
 				}
@@ -287,22 +411,14 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 		_, leng := findLongestMatch(s, h, in, i, inend, maxMatch, &sublen)
 		kend := minInt(int(leng), inend-i)
 		minCostAdd := minCost + baseCost
-		for k := 3; k <= kend; k++ {
-			if costs[j+k] <= minCostAdd {
-				continue
-			}
+		for k := minMatch; k <= kend; {
 			distValue := int(sublen[k])
-			lengthSymbol := getLengthSymbol(k)
-			cost := baseCost + float64(getLengthExtraBits(k)+getDistExtraBits(distValue)+5)
-			if lengthSymbol <= 279 {
-				cost += 7
-			} else {
-				cost += 8
+			runEnd := k
+			for runEnd < kend && sublen[runEnd+1] == sublen[k] {
+				runEnd++
 			}
-			if cost < costs[j+k] {
-				costs[j+k] = cost
-				lengthArray[j+k] = uint16(k)
-			}
+			relaxFixedLengthRanges(costs[j:], lengthArray[j:], k, runEnd, baseCost, distValue, minCostAdd)
+			k = runEnd + 1
 		}
 	}
 	return costs[blocksize]
@@ -327,11 +443,29 @@ func traceBackwards(size int, lengthArray []uint16, path *[]uint16) {
 }
 
 func followPath(s *blockState, in []byte, instart, inend int, path []uint16, store *lz77Store, h *hash) {
+	if s.lmc != nil && s.lmc.fullyBuilt() {
+		pos := instart
+		for _, length := range path {
+			if length >= minMatch {
+				dist, ok := s.lmc.cachedDistanceForLength(pos-s.blockstart, int(length))
+				if !ok {
+					panic("zopfli: incomplete longest-match cache during traceback")
+				}
+				verifyLenDist(in, inend, pos, dist, length)
+				store.storeLitLenDist(length, dist, pos)
+			} else {
+				length = 1
+				store.storeLitLenDist(uint16(in[pos]), 0, pos)
+			}
+			pos += int(length)
+		}
+		return
+	}
 	windowStart := 0
 	if instart > windowSize {
 		windowStart = instart - windowSize
 	}
-	h.reset(windowSize)
+	h.reset()
 	h.warmup(in, windowStart, inend)
 	for i := windowStart; i < instart; i++ {
 		h.update(in, i, inend)
@@ -360,14 +494,7 @@ func calculateStatistics(stats *symbolStats) {
 }
 
 func getStatistics(store *lz77Store, stats *symbolStats) {
-	for i := 0; i < store.size; i++ {
-		if store.dists[i] == 0 {
-			stats.litlens[store.litlens[i]]++
-		} else {
-			stats.litlens[getLengthSymbol(int(store.litlens[i]))]++
-			stats.dists[getDistSymbol(int(store.dists[i]))]++
-		}
-	}
+	store.histogram(0, store.size, stats.litlens[:], stats.dists[:])
 	stats.litlens[256] = 1
 	calculateStatistics(stats)
 }
@@ -388,8 +515,18 @@ func lz77OptimalRunFixed(s *blockState, in []byte, instart, inend int, path *[]u
 
 func lz77OptimalWithScratch(s *blockState, in []byte, instart, inend, numIterations int, store *lz77Store, scratch *compressionScratch) {
 	blocksize := inend - instart
-	lengthArray := make([]uint16, blocksize+1)
-	path := make([]uint16, 0, blocksize/2+1)
+	var lengthArray []uint16
+	var pathStorage []uint16
+	var path *[]uint16
+	var costs []float64
+	if scratch != nil {
+		lengthArray, path, costs = scratch.optimalBuffers(blocksize)
+	} else {
+		lengthArray = make([]uint16, blocksize+1)
+		pathStorage = make([]uint16, 0, blocksize/2+1)
+		path = &pathStorage
+		costs = make([]float64, blocksize+1)
+	}
 	var currentStore lz77Store
 	currentStore.init(in)
 	var h *hash
@@ -398,7 +535,11 @@ func lz77OptimalWithScratch(s *blockState, in []byte, instart, inend, numIterati
 	} else {
 		h = &hash{}
 	}
-	h.alloc(windowSize)
+	if s.lmc != nil {
+		buildLongestMatchCache(s, in, instart, inend, h)
+	} else {
+		h.alloc()
+	}
 	var stats, bestStats, lastStats symbolStats
 	stats.init()
 	bestCost := largeFloat
@@ -406,23 +547,21 @@ func lz77OptimalWithScratch(s *blockState, in []byte, instart, inend, numIterati
 	var ran ranState
 	ran.init()
 	lastrandomstep := -1
-	costs := make([]float64, blocksize+1)
 	lz77Greedy(s, in, instart, inend, &currentStore, h)
 	getStatistics(&currentStore, &stats)
 	for i := range numIterations {
 		currentStore.reset()
-		lz77OptimalRunStat(s, in, instart, inend, &path, lengthArray, &stats, &currentStore, h, costs)
+		lz77OptimalRunStat(s, in, instart, inend, path, lengthArray, &stats, &currentStore, h, costs)
 		cost := calculateBlockSizeWithScratch(&currentStore, 0, currentStore.size, 2, huffmanScratchFromCompressionScratch(scratch))
 		if s.options != nil && (s.options.VerboseMore || (s.options.Verbose && cost < bestCost)) {
 			fmt.Fprintf(os.Stderr, "Iteration %d: %d bit\n", i, int(cost))
 		}
-		if cost < bestCost {
-			store.copyFrom(&currentStore)
+		improved := cost < bestCost
+		if improved {
 			bestStats.copyFrom(&stats)
 			bestCost = cost
 		}
 		lastStats.copyFrom(&stats)
-		clearStatFreqs(&stats)
 		getStatistics(&currentStore, &stats)
 		if lastrandomstep != -1 {
 			addWeighedStatFreqs(&stats, 1.0, &lastStats, 0.5, &stats)
@@ -435,24 +574,43 @@ func lz77OptimalWithScratch(s *blockState, in []byte, instart, inend, numIterati
 			lastrandomstep = i
 		}
 		lastCost = cost
+		if improved {
+			// Keep the candidate as the best parse and reuse the displaced
+			// store's buffers for the next iteration.
+			*store, currentStore = currentStore, *store
+			currentStore.data = in
+		}
 	}
 }
 
 func lz77OptimalFixedWithScratch(s *blockState, in []byte, instart, inend int, store *lz77Store, scratch *compressionScratch) {
 	blocksize := inend - instart
-	lengthArray := make([]uint16, blocksize+1)
-	path := make([]uint16, 0, blocksize/2+1)
+	var lengthArray []uint16
+	var pathStorage []uint16
+	var path *[]uint16
+	var costs []float64
+	if scratch != nil {
+		lengthArray, path, costs = scratch.optimalBuffers(blocksize)
+	} else {
+		lengthArray = make([]uint16, blocksize+1)
+		pathStorage = make([]uint16, 0, blocksize/2+1)
+		path = &pathStorage
+		costs = make([]float64, blocksize+1)
+	}
 	var h *hash
 	if scratch != nil {
 		h = &scratch.hash
 	} else {
 		h = &hash{}
 	}
-	h.alloc(windowSize)
-	costs := make([]float64, blocksize+1)
+	if s.lmc != nil {
+		buildLongestMatchCache(s, in, instart, inend, h)
+	} else {
+		h.alloc()
+	}
 	s.blockstart = instart
 	s.blockend = inend
-	lz77OptimalRunFixed(s, in, instart, inend, &path, lengthArray, store, h, costs)
+	lz77OptimalRunFixed(s, in, instart, inend, path, lengthArray, store, h, costs)
 }
 
 func huffmanScratchFromCompressionScratch(scratch *compressionScratch) *huffmanScratch {
