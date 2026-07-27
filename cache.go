@@ -148,17 +148,40 @@ func (lmc *longestMatchCache) storeEmptyRuns(pos int) {
 	lmc.runStart[pos] = toUint32(len(lmc.runs))
 }
 
+func (lmc *longestMatchCache) appendRun(end, dist uint16) bool {
+	if len(lmc.runs) == cap(lmc.runs) && !lmc.ensureRunCapacity(len(lmc.runs)+1) {
+		return false
+	}
+	lmc.runs = append(lmc.runs, sublenRun{end: end, dist: dist})
+	return true
+}
+
 func (lmc *longestMatchCache) storeRunsFromSublen(pos int, sublen *[maxMatch + 1]uint16, length int) bool {
 	start := len(lmc.runs)
-	for i := minMatch; i <= length; i++ {
-		if i == length || sublen[i] != sublen[i+1] {
-			if len(lmc.runs) == cap(lmc.runs) && !lmc.ensureRunCapacity(len(lmc.runs)+1) {
-				lmc.runs = lmc.runs[:start]
-				lmc.storeEmptyRuns(pos)
-				return false
-			}
-			lmc.runs = append(lmc.runs, sublenRun{end: toUint16(i), dist: sublen[i]})
+	// Ranging over a slice keeps this scan bounds-check free; the previous form
+	// indexed sublen[i] and sublen[i+1] on the array, which the compiler could
+	// not prove in range.
+	values := sublen[minMatch : length+1]
+	if len(values) == 0 {
+		lmc.storeEmptyRuns(pos)
+		return false
+	}
+	dist := values[0]
+	for offset, value := range values[1:] {
+		if value == dist {
+			continue
 		}
+		if !lmc.appendRun(toUint16(minMatch+offset), dist) {
+			lmc.runs = lmc.runs[:start]
+			lmc.storeEmptyRuns(pos)
+			return false
+		}
+		dist = value
+	}
+	if !lmc.appendRun(toUint16(minMatch+len(values)-1), dist) {
+		lmc.runs = lmc.runs[:start]
+		lmc.storeEmptyRuns(pos)
+		return false
 	}
 	count := len(lmc.runs) - start
 	lmc.runCount[pos] = toUint16(count)

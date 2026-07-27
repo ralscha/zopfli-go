@@ -321,7 +321,7 @@ func BenchmarkFixedLengthRangeRelaxation(b *testing.B) {
 		lengths := make([]uint16, len(initial))
 		for range b.N {
 			copy(costs, initial)
-			relaxFixedLengthRanges(costs, lengths, minMatch, maxMatch, 70.5, 1234, 79)
+			relaxFixedLengthRanges(costs, lengths, minMatch, maxMatch, 70.5, 1234)
 		}
 	})
 	b.Run("fixed-scalar", func(b *testing.B) {

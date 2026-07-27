@@ -166,11 +166,7 @@ func TestSegmentedFixedLengthRelaxationMatchesScalar(t *testing.T) {
 	}
 	baseCost := 70.5
 	distance := 1234
-	minCostAdd := 79.0
 	for k := minMatch; k <= maxMatch; k++ {
-		if fixedWant[k] <= minCostAdd {
-			continue
-		}
 		lengthSymbol := getLengthSymbol(k)
 		cost := baseCost + float64(getLengthExtraBits(k)+getDistExtraBits(distance)+5)
 		if lengthSymbol <= 279 {
@@ -183,7 +179,7 @@ func TestSegmentedFixedLengthRelaxationMatchesScalar(t *testing.T) {
 			fixedWantLengths[k] = toUint16(k)
 		}
 	}
-	relaxFixedLengthRanges(fixedGot, fixedGotLengths, minMatch, maxMatch, baseCost, distance, minCostAdd)
+	relaxFixedLengthRanges(fixedGot, fixedGotLengths, minMatch, maxMatch, baseCost, distance)
 	if !reflect.DeepEqual(fixedGot, fixedWant) || !reflect.DeepEqual(fixedGotLengths, fixedWantLengths) {
 		t.Fatal("segmented fixed relaxation differs from scalar order")
 	}

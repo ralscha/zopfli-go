@@ -17,8 +17,6 @@ type ranState struct {
 	mz uint32
 }
 
-var distSymbolsTable = [30]int{1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577}
-
 func (s *symbolStats) init() {
 	*s = symbolStats{}
 }
@@ -62,38 +60,56 @@ func randomizeStatFreqs(state *ranState, stats *symbolStats) {
 	stats.litlens[256] = 1
 }
 
-func getCostStat(litlen, dist uint16, stats *symbolStats) float64 {
-	if dist == 0 {
-		return stats.llSymbols[litlen]
-	}
-	lSym := getLengthSymbol(int(litlen))
-	dSym := getDistSymbol(int(dist))
-	return float64(getLengthExtraBits(int(litlen))+getDistExtraBits(int(dist))) + stats.llSymbols[lSym] + stats.dSymbols[dSym]
-}
-
-func getCostModelMinCostStat(stats *symbolStats) float64 {
-	minCost := largeFloat
-	bestLength := 0
-	bestDist := 0
-	for i := 3; i < 259; i++ {
-		c := getCostStat(uint16(i), 1, stats)
-		if c < minCost {
-			bestLength = i
-			minCost = c
+// firstImprovableLength returns the smallest length in [start, end] whose
+// current cost is above threshold, or end+1 when the whole range is already at
+// or below it.
+//
+// Callers pass a lower bound on the cost of every candidate they are about to
+// consider, so a length whose recorded cost is already at or below the bound
+// can never be improved. Skipping is optional, which is why the caller may then
+// relax the whole remainder of the range without re-testing.
+func firstImprovableLength(costs []float64, start, end int, threshold float64) int {
+	for index, current := range costs[start : end+1] {
+		if current > threshold {
+			return start + index
 		}
 	}
-	minCost = largeFloat
-	for _, dist := range distSymbolsTable {
-		c := getCostStat(3, toUint16(dist), stats)
-		if c < minCost {
-			bestDist = dist
-			minCost = c
-		}
-	}
-	return getCostStat(toUint16(bestLength), toUint16(bestDist), stats)
+	return end + 1
 }
 
-func relaxFixedLengthRanges(costs []float64, lengths []uint16, start, end int, baseCost float64, distValue int, minCostAdd float64) {
+// relaxLengthSegment relaxes the dynamic programming costs for every length in
+// [start, end] against a single candidate cost. Callers split match ranges on
+// length-symbol boundaries so that the candidate cost is constant here, which
+// makes the comparison below both the improvement test and an exact guard.
+func relaxLengthSegment(costs []float64, lengths []uint16, start, end int, newCost float64) {
+	count := end + 1 - start
+	segment := costs[start : start+count]
+	segmentLengths := lengths[start : start+count]
+	for index, current := range segment {
+		if newCost < current {
+			segment[index] = newCost
+			segmentLengths[index] = toUint16(start + index)
+		}
+	}
+}
+
+// relaxStatLengths relaxes [start, end] against the entropy cost model, where
+// the candidate cost varies with the length symbol of each length.
+func relaxStatLengths(costs []float64, lengths []uint16, start, end int, basePlusDist float64, lengthCosts *[maxMatch + 1]float64) {
+	count := end + 1 - start
+	segment := costs[start : start+count]
+	segmentLengths := lengths[start : start+count]
+	segmentCosts := lengthCosts[start : start+count]
+	for index, current := range segment {
+		newCost := basePlusDist + segmentCosts[index]
+		if newCost < current {
+			segment[index] = newCost
+			segmentLengths[index] = toUint16(start + index)
+		}
+	}
+}
+
+func relaxFixedLengthRanges(costs []float64, lengths []uint16, start, end int, baseCost float64, distValue int) {
 	distExtraPlusFive := getDistExtraBits(distValue) + 5
 	for start <= end {
 		rangeEnd := minInt(int(lengthSymbolRunEnd[start]), end)
@@ -104,15 +120,7 @@ func relaxFixedLengthRanges(costs []float64, lengths []uint16, start, end int, b
 		} else {
 			newCost += 8
 		}
-		for k := start; k <= rangeEnd; k++ {
-			if costs[k] <= minCostAdd {
-				continue
-			}
-			if newCost < costs[k] {
-				costs[k] = newCost
-				lengths[k] = toUint16(k)
-			}
-		}
+		relaxLengthSegment(costs, lengths, start, rangeEnd, newCost)
 		start = rangeEnd + 1
 	}
 }
@@ -120,7 +128,6 @@ func relaxFixedLengthRanges(costs []float64, lengths []uint16, start, end int, b
 func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *symbolStats, lengthArray []uint16, h *hash, costs []float64) float64 {
 	blocksize := inend - instart
 	useCompleteCache := s.lmc != nil && s.lmc.fullyBuilt()
-	minCost := getCostModelMinCostStat(stats)
 	llSymbols := stats.llSymbols[:]
 	dSymbols := stats.dSymbols[:]
 	var literalCosts [256]float64
@@ -128,6 +135,19 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 	var lengthCosts [maxMatch + 1]float64
 	for length := 3; length <= maxMatch; length++ {
 		lengthCosts[length] = float64(getLengthExtraBits(length)) + llSymbols[getLengthSymbol(length)]
+	}
+	// lengthCostSuffixMin[n] is the cheapest length term of any match of at
+	// least n bytes. Added to a match's distance term it lower-bounds every
+	// candidate cost that a run starting at n can produce, which makes it a
+	// much tighter relaxation guard than the global cost model minimum.
+	var lengthCostSuffixMin [maxMatch + 2]float64
+	lengthCostSuffixMin[maxMatch+1] = largeFloat
+	for length := maxMatch; length >= minMatch; length-- {
+		suffixMin := lengthCostSuffixMin[length+1]
+		if lengthCosts[length] < suffixMin {
+			suffixMin = lengthCosts[length]
+		}
+		lengthCostSuffixMin[length] = suffixMin
 	}
 	maxMatchCost := lengthCosts[maxMatch] + dSymbols[0]
 	if !useCompleteCache {
@@ -205,52 +225,17 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 			if !ok {
 				panic("zopfli: complete longest-match runs missing")
 			}
-			minCostAdd := minCost + baseCost
 			prevLength := minMatch
-			for idx := 0; idx < runs.count(); idx++ {
-				end, distance := runs.at(idx)
-				runEnd := minInt(int(end), kend)
+			for _, run := range runs.runs {
+				runEnd := minInt(int(run.end), kend)
 				if runEnd < prevLength {
 					continue
 				}
-				runStart := prevLength
-				for runStart <= runEnd && costsAtJ[runStart] <= minCostAdd {
-					runStart++
-				}
-				if runStart <= runEnd {
-					distInt := int(distance)
-					distSymbol := getDistSymbol(distInt)
-					basePlusDist := baseCost + float64(getDistExtraBits(distInt)) + dSymbols[distSymbol]
-					k := runStart
-					for ; k+3 <= runEnd; k += 4 {
-						cost0 := basePlusDist + lengthCosts[k]
-						if cost0 < costsAtJ[k] {
-							costsAtJ[k] = cost0
-							lengthsAtJ[k] = toUint16(k)
-						}
-						cost1 := basePlusDist + lengthCosts[k+1]
-						if cost1 < costsAtJ[k+1] {
-							costsAtJ[k+1] = cost1
-							lengthsAtJ[k+1] = uint16(k + 1)
-						}
-						cost2 := basePlusDist + lengthCosts[k+2]
-						if cost2 < costsAtJ[k+2] {
-							costsAtJ[k+2] = cost2
-							lengthsAtJ[k+2] = uint16(k + 2)
-						}
-						cost3 := basePlusDist + lengthCosts[k+3]
-						if cost3 < costsAtJ[k+3] {
-							costsAtJ[k+3] = cost3
-							lengthsAtJ[k+3] = uint16(k + 3)
-						}
-					}
-					for ; k <= runEnd; k++ {
-						newCost := basePlusDist + lengthCosts[k]
-						if newCost < costsAtJ[k] {
-							costsAtJ[k] = newCost
-							lengthsAtJ[k] = toUint16(k)
-						}
-					}
+				distInt := int(run.dist)
+				basePlusDist := baseCost + float64(getDistExtraBits(distInt)) + dSymbols[getDistSymbol(distInt)]
+				threshold := basePlusDist + lengthCostSuffixMin[prevLength]
+				if runStart := firstImprovableLength(costsAtJ, prevLength, runEnd, threshold); runStart <= runEnd {
+					relaxStatLengths(costsAtJ, lengthsAtJ, runStart, runEnd, basePlusDist, &lengthCosts)
 				}
 				if runEnd == kend {
 					break
@@ -261,7 +246,6 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 		}
 		if cachedLeng, ends, dists, ok := tryGetFromLongestMatchCacheCompact(s, i, maxMatch); ok {
 			kend := minInt(int(cachedLeng), inend-i)
-			minCostAdd := minCost + baseCost
 			prevLength := 3
 			for idx := range cacheLength {
 				runEnd := minInt(int(ends[idx]), kend)
@@ -271,21 +255,11 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 					}
 					continue
 				}
-				runStart := prevLength
-				for runStart <= runEnd && costsAtJ[runStart] <= minCostAdd {
-					runStart++
-				}
-				if runStart <= runEnd {
-					distInt := int(dists[idx])
-					distSymbol := getDistSymbol(distInt)
-					basePlusDist := baseCost + float64(getDistExtraBits(distInt)) + dSymbols[distSymbol]
-					for k := runStart; k <= runEnd; k++ {
-						newCost := basePlusDist + lengthCosts[k]
-						if newCost < costsAtJ[k] {
-							costsAtJ[k] = newCost
-							lengthsAtJ[k] = toUint16(k)
-						}
-					}
+				distInt := int(dists[idx])
+				basePlusDist := baseCost + float64(getDistExtraBits(distInt)) + dSymbols[getDistSymbol(distInt)]
+				threshold := basePlusDist + lengthCostSuffixMin[prevLength]
+				if runStart := firstImprovableLength(costsAtJ, prevLength, runEnd, threshold); runStart <= runEnd {
+					relaxStatLengths(costsAtJ, lengthsAtJ, runStart, runEnd, basePlusDist, &lengthCosts)
 				}
 				if runEnd == kend {
 					break
@@ -296,29 +270,19 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 		}
 		_, leng := findLongestMatch(s, h, in, i, inend, maxMatch, &sublen)
 		kend := minInt(int(leng), inend-i)
-		minCostAdd := minCost + baseCost
-		for k := 3; k <= kend; {
-			for k <= kend && costsAtJ[k] <= minCostAdd {
-				k++
-			}
-			if k > kend {
-				break
-			}
+		for k := minMatch; k <= kend; {
 			distValue := sublen[k]
-			runEnd := k + 1
-			for runEnd <= kend && sublen[runEnd] == distValue {
+			runEnd := k
+			for runEnd < kend && sublen[runEnd+1] == distValue {
 				runEnd++
 			}
 			distInt := int(distValue)
-			distSymbol := getDistSymbol(distInt)
-			basePlusDist := baseCost + float64(getDistExtraBits(distInt)) + dSymbols[distSymbol]
-			for ; k < runEnd; k++ {
-				newCost := basePlusDist + lengthCosts[k]
-				if newCost < costsAtJ[k] {
-					costsAtJ[k] = newCost
-					lengthsAtJ[k] = toUint16(k)
-				}
+			basePlusDist := baseCost + float64(getDistExtraBits(distInt)) + dSymbols[getDistSymbol(distInt)]
+			threshold := basePlusDist + lengthCostSuffixMin[k]
+			if runStart := firstImprovableLength(costsAtJ, k, runEnd, threshold); runStart <= runEnd {
+				relaxStatLengths(costsAtJ, lengthsAtJ, runStart, runEnd, basePlusDist, &lengthCosts)
 			}
+			k = runEnd + 1
 		}
 	}
 	return costs[blocksize]
@@ -327,7 +291,6 @@ func getBestLengthsStat(s *blockState, in []byte, instart, inend int, stats *sym
 func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArray []uint16, h *hash, costs []float64) float64 {
 	blocksize := inend - instart
 	useCompleteCache := s.lmc != nil && s.lmc.fullyBuilt()
-	const minCost = 12.0
 	if !useCompleteCache {
 		windowStart := 0
 		if instart > windowSize {
@@ -370,16 +333,15 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 			if !ok {
 				panic("zopfli: complete longest-match runs missing")
 			}
-			minCostAdd := minCost + baseCost
+			costsAtJ := costs[j:]
+			lengthsAtJ := lengthArray[j:]
 			prevLength := minMatch
-			for idx := 0; idx < runs.count(); idx++ {
-				end, distance := runs.at(idx)
-				runEnd := minInt(int(end), kend)
+			for _, run := range runs.runs {
+				runEnd := minInt(int(run.end), kend)
 				if runEnd < prevLength {
 					continue
 				}
-				distValue := int(distance)
-				relaxFixedLengthRanges(costs[j:], lengthArray[j:], prevLength, runEnd, baseCost, distValue, minCostAdd)
+				relaxFixedLengthRanges(costsAtJ, lengthsAtJ, prevLength, runEnd, baseCost, int(run.dist))
 				if runEnd == kend {
 					break
 				}
@@ -389,7 +351,6 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 		}
 		if cachedLeng, ends, dists, ok := tryGetFromLongestMatchCacheCompact(s, i, maxMatch); ok {
 			kend := minInt(int(cachedLeng), inend-i)
-			minCostAdd := minCost + baseCost
 			prevLength := 3
 			for idx := range cacheLength {
 				runEnd := minInt(int(ends[idx]), kend)
@@ -400,7 +361,7 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 					continue
 				}
 				distValue := int(dists[idx])
-				relaxFixedLengthRanges(costs[j:], lengthArray[j:], prevLength, runEnd, baseCost, distValue, minCostAdd)
+				relaxFixedLengthRanges(costs[j:], lengthArray[j:], prevLength, runEnd, baseCost, distValue)
 				if runEnd == kend {
 					break
 				}
@@ -410,14 +371,13 @@ func getBestLengthsFixed(s *blockState, in []byte, instart, inend int, lengthArr
 		}
 		_, leng := findLongestMatch(s, h, in, i, inend, maxMatch, &sublen)
 		kend := minInt(int(leng), inend-i)
-		minCostAdd := minCost + baseCost
 		for k := minMatch; k <= kend; {
 			distValue := int(sublen[k])
 			runEnd := k
 			for runEnd < kend && sublen[runEnd+1] == sublen[k] {
 				runEnd++
 			}
-			relaxFixedLengthRanges(costs[j:], lengthArray[j:], k, runEnd, baseCost, distValue, minCostAdd)
+			relaxFixedLengthRanges(costs[j:], lengthArray[j:], k, runEnd, baseCost, distValue)
 			k = runEnd + 1
 		}
 	}
