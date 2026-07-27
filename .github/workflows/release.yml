@@ -32,6 +32,9 @@ jobs:
           go test -run '^$' -bench 'PureGoGzip/(web-assets-256k|records-logs-256k|real-files-256k)$' \
             -benchtime 2x -cpuprofile cmd/zopfli-go/default.pgo .
 
+      - name: Clean up test binaries
+        run: rm -f zopfli-go.test
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:
