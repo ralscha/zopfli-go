@@ -27,6 +27,11 @@ jobs:
       - name: Run Go tests
         run: go test ./...
 
+      - name: Generate PGO profile
+        run: |
+          go test -run '^$' -bench 'PureGoGzip/(web-assets-256k|records-logs-256k|real-files-256k)$' \
+            -benchtime 2x -cpuprofile cmd/zopfli-go/default.pgo .
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:

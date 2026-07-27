@@ -3,3 +3,4 @@ llvm/
 *.out
 pprof.txt
 dist
+cmd/zopfli-go/default.pgo
