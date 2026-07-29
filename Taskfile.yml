@@ -12,6 +12,11 @@ tasks:
       - go fix ./...
       - go fmt ./...
 
+  build:
+    desc: Build the zopfli-go command-line program
+    cmds:
+      - go build -o zopfli-go{{exeExt}} ./cmd/zopfli-go
+
   lint:
     desc: Run golangci-lint in a Docker container
     cmds:
