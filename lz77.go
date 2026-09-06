@@ -138,6 +138,7 @@ func (s *lz77Store) storeLitLenDist(length, dist uint16, pos int) {
 }
 
 func (s *lz77Store) appendStore(other *lz77Store) {
+	s.reserveTokens(s.size + other.size)
 	for i := 0; i < other.size; i++ {
 		s.storeLitLenDist(other.litlens[i], other.dists[i], other.pos[i])
 	}

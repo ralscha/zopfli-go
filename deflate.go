@@ -670,7 +670,11 @@ func prepareDeflatePart(options *Options, btype int, in []byte, instart, inend i
 			}
 			optimized := optimizeBlock(options, in, start, end, scratch)
 			totalCost += optimized.cost
-			plan.lz77.appendStore(&optimized.store)
+			if i == 0 {
+				plan.lz77 = optimized.store
+			} else {
+				plan.lz77.appendStore(&optimized.store)
+			}
 			if i < len(splitpointsUncompressed) {
 				plan.splitPoints[i] = plan.lz77.size
 			}
@@ -683,7 +687,11 @@ func prepareDeflatePart(options *Options, btype int, in []byte, instart, inend i
 			for offset := range batch {
 				index := first + offset
 				totalCost += batch[offset].cost
-				plan.lz77.appendStore(&batch[offset].store)
+				if index == 0 {
+					plan.lz77 = batch[offset].store
+				} else {
+					plan.lz77.appendStore(&batch[offset].store)
+				}
 				batch[offset].store = lz77Store{}
 				if index < len(splitpointsUncompressed) {
 					plan.splitPoints[index] = plan.lz77.size

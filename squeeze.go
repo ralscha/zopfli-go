@@ -403,6 +403,7 @@ func traceBackwards(size int, lengthArray []uint16, path *[]uint16) {
 }
 
 func followPath(s *blockState, in []byte, instart, inend int, path []uint16, store *lz77Store, h *hash) {
+	store.reserveTokens(store.size + len(path))
 	if s.lmc != nil && s.lmc.fullyBuilt() {
 		pos := instart
 		for _, length := range path {
