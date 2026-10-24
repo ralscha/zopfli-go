@@ -1,0 +1,67 @@
+﻿build: experiment
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: Intel(R) Core(TM) i7-3610QM CPU @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       2	  19731900 ns/op	   0.16 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       2	3152931250 ns/op	   0.26 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       2	1094981250 ns/op	   0.24 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       2	1254905650 ns/op	   0.21 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       2	1103291350 ns/op	   0.24 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       2	 244756900 ns/op	   1.07 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: Intel(R) Core(TM) i7-3610QM CPU @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       2	  19901300 ns/op	   0.16 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       2	3197941650 ns/op	   0.25 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       2	1119936700 ns/op	   0.23 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       2	1256181000 ns/op	   0.21 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       2	1161907900 ns/op	   0.23 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       2	 256290600 ns/op	   1.02 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: Intel(R) Core(TM) i7-3610QM CPU @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       2	  19683300 ns/op	   0.16 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       2	3155646250 ns/op	   0.26 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       2	1122854100 ns/op	   0.23 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       2	1249749100 ns/op	   0.21 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       2	1144945400 ns/op	   0.23 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       2	 239955100 ns/op	   1.09 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: Intel(R) Core(TM) i7-3610QM CPU @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       2	  19319350 ns/op	   0.17 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       2	3160807900 ns/op	   0.26 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       2	1097198800 ns/op	   0.24 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       2	1254395150 ns/op	   0.21 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       2	1104796850 ns/op	   0.24 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       2	 240484200 ns/op	   1.09 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: Intel(R) Core(TM) i7-3610QM CPU @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       2	  20178500 ns/op	   0.16 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       2	3267783550 ns/op	   0.25 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       2	1144815950 ns/op	   0.23 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       2	1250438850 ns/op	   0.21 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       2	1103765650 ns/op	   0.24 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       2	 237758050 ns/op	   1.10 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: Intel(R) Core(TM) i7-3610QM CPU @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       2	  20279950 ns/op	   0.16 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       2	3166254050 ns/op	   0.26 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       2	1088871250 ns/op	   0.24 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       2	1250440250 ns/op	   0.21 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       2	1103274950 ns/op	   0.24 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       2	 238277650 ns/op	   1.10 MB/s	51415040 B/op	     134 allocs/op
+PASS

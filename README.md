@@ -104,6 +104,70 @@ Supported CLI flags:
 - `-V`, `--verbose-more`
 - `-J`, `--json`
 
+## Experimental SIMD
+
+Go 1.27's [SIMD experiment](https://go.dev/blog/simd-experiment) can accelerate
+the optimal parser's search for the first improvable match cost:
+
+```bash
+GOEXPERIMENT=simd go build ./cmd/zopfli-go
+GOEXPERIMENT=simd go test ./...
+```
+
+In PowerShell, set `$env:GOEXPERIMENT = 'simd'` before those Go commands.
+Ordinary builds keep the scalar implementation. Experimental builds use
+`simd/archsimd` to compare four `float64` costs at once on amd64 CPUs with AVX;
+other architectures and CPUs without AVX use the scalar implementation.
+AVX2 is not required. Test the runtime fallback with
+`GOEXPERIMENT=simd GODEBUG=cpu.avx=off go test -count=1 ./...`.
+
+The scan preserves the first strictly greater cost, including ties and NaNs,
+and never reads outside the requested range. Compression settings and output
+are unchanged. The implementation explicitly clears the upper AVX registers
+before returning to scalar code, as required by the experimental API to avoid
+transition penalties on older CPUs.
+
+Profiling `main` on the benchmark corpora attributed about 44% of CPU samples to
+this scan, 18% to updating match costs, and 3% to byte matching. Vectorizing the
+cost updates was also tried but was slower on the measured CPU, so those updates
+remain scalar. Hash-chain traversal and Huffman construction have dependencies
+that make them less suitable for this SIMD change.
+
+Measured on 2026-10-24 with Go 1.27.3, Windows/amd64, and an Intel i7-3610QM
+(AVX, without AVX2), against `main` at `8dde94a`. These are median milliseconds
+for default gzip compression over six samples of two operations each, with one
+Go CPU and PGO disabled. Run order rotates between the three builds.
+
+| Corpus | Main ms | Main + experiment ms | SIMD ms | Time saved vs main |
+| --- | ---: | ---: | ---: | ---: |
+| tiny-text | 19.58 | 19.82 | 16.89 | 13.8% |
+| mixed-256k | 3226.92 | 3163.53 | 2713.80 | 15.9% |
+| web-assets-256k | 1098.00 | 1108.57 | 806.48 | 26.5% |
+| records-logs-256k | 1253.54 | 1252.42 | 962.17 | 23.2% |
+| real-files-256k | 1109.60 | 1104.28 | 824.07 | 25.7% |
+| random-256k | 240.29 | 240.22 | 241.71 | -0.6% |
+
+The compressible corpora take **14–27% less time** on this machine; random data
+shows no meaningful improvement. Allocated bytes and allocation counts match.
+SHA-256 comparisons against `main` match for all six corpora in both default
+and fast modes. Other CPUs and workloads may have different results.
+
+[Raw measurements and methodology](testdata/bench-results/simd/metadata.txt)
+include a control build of unchanged `main` with the experiment enabled.
+The same benchmark harness is used for all builds, including seeded random
+input. Despite its existing name, `mixed-256k` contains 812,032 bytes.
+
+To repeat the comparison, copy the current `benchmark_test.go` into a separate
+checkout of the baseline commit and build its test binary with
+`GOEXPERIMENT` unset and `go test -c -pgo=off`. Build the candidate with
+`GOEXPERIMENT=simd` and the same
+command. Run both binaries from the same repository directory so they read
+identical fixtures, alternating their order:
+
+```text
+<binary> -test.run=^$ -test.bench=^BenchmarkPureGoGzip$ -test.benchtime=2x -test.count=1 -test.cpu=1
+```
+
 ## Benchmarks
 
 The table below is updated by the benchmark workflow on branch pushes and workflow dispatches.

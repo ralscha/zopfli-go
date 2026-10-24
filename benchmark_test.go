@@ -48,13 +48,21 @@ func benchmarkCorpora() []benchmarkCorpus {
 			sourceMixBuilder.WriteString("\n")
 		}
 
+		// Keep the incompressible corpus identical across processes and builds.
+		// crypto/rand made before/after benchmark comparisons use different data.
+		random := make([]byte, 256*1024)
+		state := uint32(1)
+		for i := range random {
+			state = state*1664525 + 1013904223
+			random[i] = byte(state >> 24)
+		}
 		benchmarkCorpusCache = []benchmarkCorpus{
 			{name: "tiny-text", data: []byte(strings.Repeat("hello hello hello zopfli ", 128))},
 			{name: "mixed-256k", data: []byte(mixed)},
 			{name: "web-assets-256k", data: []byte(webMix)},
 			{name: "records-logs-256k", data: []byte(serviceMix)},
 			{name: "real-files-256k", data: []byte(repeatToSize(sourceMixBuilder.String(), 256*1024))},
-			{name: "random-256k", data: getRandomBytes(256 * 1024)},
+			{name: "random-256k", data: random},
 		}
 	})
 	return benchmarkCorpusCache

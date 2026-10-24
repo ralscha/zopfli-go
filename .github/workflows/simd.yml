@@ -1,0 +1,32 @@
+name: SIMD
+
+on:
+  push:
+    paths: ['**/*.go', 'go.mod', '.github/workflows/simd.yml']
+  pull_request:
+    paths: ['**/*.go', 'go.mod', '.github/workflows/simd.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        experiment: ['', simd]
+    runs-on: ${{ matrix.os }}
+    env:
+      GOEXPERIMENT: ${{ matrix.experiment }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - name: Test scalar fallback without AVX
+        if: matrix.experiment == 'simd'
+        env:
+          GODEBUG: cpu.avx=off
+        run: go test -count=1 ./...

@@ -1,0 +1,64 @@
+Date: 2026-10-24
+Baseline: main, 8dde94a7e261f0e05c42dfe334686cfee288086f
+Toolchain: go1.27.3 windows/amd64, GOAMD64=v1
+CPU: Intel Core i7-3610QM @ 2.30 GHz (AVX, no AVX2)
+Builds: go test -c -pgo=off
+
+main.txt: main algorithm, GOEXPERIMENT unset
+main-experiment.txt: main algorithm, GOEXPERIMENT=simd
+simd.txt: candidate algorithm, GOEXPERIMENT=simd
+
+All builds use the same benchmark_test.go, including the deterministic random
+corpus added in this change. Main production sources are otherwise unchanged.
+All binaries run from the working repository with the same fixture files.
+The existing name mixed-256k is misleading: that corpus actually has 812032 bytes.
+The remaining large corpora have 262144 bytes; tiny-text has 3200 bytes.
+
+Benchmark command for each sample:
+  <binary> -test.run=^$ -test.bench=^BenchmarkPureGoGzip$ -test.benchtime=2x -test.count=1 -test.cpu=1
+
+Six samples per build, using all six permutations of the three build orders:
+  main, main-experiment, simd
+  simd, main-experiment, main
+  main-experiment, simd, main
+  main, simd, main-experiment
+  simd, main, main-experiment
+  main-experiment, main, simd
+
+DefaultOptions: 15 optimal-parsing iterations, block splitting enabled.
+The reported time is the median of six samples (two timed compressions each).
+Each sample also has Go's calibration invocation, excluded from the reported time.
+No tests, builds, linting, or other benchmark commands run concurrently.
+Measurements describe this CPU and these repository fixtures, not all CPUs or inputs.
+
+main-scan.txt and simd-scan.txt contain the focused scan benchmarks:
+  <binary> -test.run=^$ -test.bench=^BenchmarkFirstImprovableLength$ -test.benchtime=200ms -test.count=6 -test.cpu=1
+These were run sequentially after the end-to-end benchmarks. The 256-entry
+no-hit scan has median 177.0 ns on main and 93.475 ns with SIMD (1.89x faster).
+Short and early-hit scans can be slower because the SIMD helper has setup and
+call overhead. The end-to-end results include that tradeoff.
+
+Validation:
+  go test ./...
+  GOEXPERIMENT=simd go test ./...
+  GOEXPERIMENT=simd GODEBUG=cpu.avx=off go test -count=1 ./...
+  go vet ./... (normal and SIMD builds)
+  GOEXPERIMENT=simd GOOS=linux GOARCH=arm64 go test -c
+  GOEXPERIMENT=simd GOOS=js GOARCH=wasm go test -c
+  SHA-256 output comparison against main for all six benchmark corpora,
+    default and fast profiles, plus a generated fixture in all three formats.
+  golangci-lint 2.14.0: the same three existing G703 findings on main and candidate
+    (upstream benchmark executable discovery and CLI input path handling).
+
+The initial profile on main attributed 43.81% of flat CPU samples to
+firstImprovableLength, 18.46% to relaxStatLengths and 2.65% to getMatch.
+SIMD relaxation was prototyped and rejected because updating uint16 path
+lengths from the comparison mask cost more than the scalar loop on this CPU.
+The retained change only vectorizes firstImprovableLength.
+
+Implementation notes for this Go experiment:
+  Float64 broadcast and IfElse use AVX2 instructions in Go 1.27.3.
+  The implementation uses AVX loads from repeated scalars instead.
+  ClearAVXUpperBits must precede returning to scalar Go.
+  An overlapping vector handles the tail so the compiler need not spill
+    a live scalar threshold with SSE before clearing the upper AVX registers.

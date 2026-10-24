@@ -60,7 +60,7 @@ func randomizeStatFreqs(state *ranState, stats *symbolStats) {
 	stats.litlens[256] = 1
 }
 
-// firstImprovableLength returns the smallest length in [start, end] whose
+// firstImprovableLengthScalar returns the smallest length in [start, end] whose
 // current cost is above threshold, or end+1 when the whole range is already at
 // or below it.
 //
@@ -68,7 +68,7 @@ func randomizeStatFreqs(state *ranState, stats *symbolStats) {
 // consider, so a length whose recorded cost is already at or below the bound
 // can never be improved. Skipping is optional, which is why the caller may then
 // relax the whole remainder of the range without re-testing.
-func firstImprovableLength(costs []float64, start, end int, threshold float64) int {
+func firstImprovableLengthScalar(costs []float64, start, end int, threshold float64) int {
 	for index, current := range costs[start : end+1] {
 		if current > threshold {
 			return start + index
