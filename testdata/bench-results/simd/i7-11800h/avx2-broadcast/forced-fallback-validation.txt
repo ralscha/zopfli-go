@@ -1,0 +1,8 @@
+mode: forced-avx; GOEXPERIMENT=simd; GOAMD64=v1; temporary source override
+ok  	github.com/ralscha/zopfli-go	19.356s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.657s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.378s
+mode: forced-scalar; GOEXPERIMENT=simd; GOAMD64=v1; temporary source override
+ok  	github.com/ralscha/zopfli-go	29.096s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.668s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.394s

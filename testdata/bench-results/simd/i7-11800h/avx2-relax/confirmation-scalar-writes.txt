@@ -1,0 +1,67 @@
+build: scalar-writes
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       5	   7915020 ns/op	   0.40 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       5	1355624060 ns/op	   0.60 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       5	 432566420 ns/op	   0.61 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       5	 495056940 ns/op	   0.53 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       5	 435446160 ns/op	   0.60 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       5	 124287260 ns/op	   2.11 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       5	   7987060 ns/op	   0.40 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       5	1356988480 ns/op	   0.60 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       5	 433916780 ns/op	   0.60 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       5	 492643700 ns/op	   0.53 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       5	 434081580 ns/op	   0.60 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       5	 122129060 ns/op	   2.15 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       5	   8051500 ns/op	   0.40 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       5	1392937580 ns/op	   0.58 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       5	 428537620 ns/op	   0.61 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       5	 497380700 ns/op	   0.53 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       5	 439375520 ns/op	   0.60 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       5	 121589900 ns/op	   2.16 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       5	   7879760 ns/op	   0.41 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       5	1340918700 ns/op	   0.61 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       5	 427634940 ns/op	   0.61 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       5	 495365820 ns/op	   0.53 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       5	 431023960 ns/op	   0.61 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       5	 123077800 ns/op	   2.13 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       5	   8399640 ns/op	   0.38 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       5	1388742180 ns/op	   0.58 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       5	 440784760 ns/op	   0.59 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       5	 513480780 ns/op	   0.51 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       5	 447504400 ns/op	   0.59 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       5	 126703880 ns/op	   2.07 MB/s	51415040 B/op	     134 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkPureGoGzip/tiny-text         	       5	   8133780 ns/op	   0.39 MB/s	 1209280 B/op	     118 allocs/op
+BenchmarkPureGoGzip/mixed-256k        	       5	1377968380 ns/op	   0.59 MB/s	37311968 B/op	     106 allocs/op
+BenchmarkPureGoGzip/web-assets-256k   	       5	 437993980 ns/op	   0.60 MB/s	16266368 B/op	     130 allocs/op
+BenchmarkPureGoGzip/records-logs-256k 	       5	 518685380 ns/op	   0.51 MB/s	16084992 B/op	     129 allocs/op
+BenchmarkPureGoGzip/real-files-256k   	       5	 448934300 ns/op	   0.58 MB/s	16418176 B/op	     121 allocs/op
+BenchmarkPureGoGzip/random-256k       	       5	 124001340 ns/op	   2.11 MB/s	51415040 B/op	     134 allocs/op
+PASS

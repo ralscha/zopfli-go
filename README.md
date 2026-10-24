@@ -118,8 +118,11 @@ In PowerShell, set `$env:GOEXPERIMENT = 'simd'` before those Go commands.
 Ordinary builds keep the scalar implementation. Experimental builds use
 `simd/archsimd` to compare four `float64` costs at once on amd64 CPUs with AVX;
 other architectures and CPUs without AVX use the scalar implementation.
-AVX2 is not required. Test the runtime fallback with
+AVX2 is not required. On platforms that support Go's CPU feature overrides,
+test the runtime fallback with
 `GOEXPERIMENT=simd GODEBUG=cpu.avx=off go test -count=1 ./...`.
+The Windows Go 1.27.3 runtime used for these measurements ignores these CPU
+overrides; a passing test with that setting does not establish fallback coverage.
 
 The scan preserves the first strictly greater cost, including ties and NaNs,
 and never reads outside the requested range. Compression settings and output
@@ -129,8 +132,9 @@ transition penalties on older CPUs.
 
 Profiling `main` on the benchmark corpora attributed about 44% of CPU samples to
 this scan, 18% to updating match costs, and 3% to byte matching. Vectorizing the
-cost updates was also tried but was slower on the measured CPU, so those updates
-remain scalar. Hash-chain traversal and Huffman construction have dependencies
+cost updates was also tried but was slower on the i7-3610QM, so those updates
+remain scalar in production. New AVX2 prototypes are measured below.
+Hash-chain traversal and Huffman construction have dependencies
 that make them less suitable for this SIMD change.
 
 Measured on 2026-10-24 with Go 1.27.3, Windows/amd64, and an Intel i7-3610QM
@@ -147,15 +151,42 @@ Go CPU and PGO disabled. Run order rotates between the three builds.
 | real-files-256k | 1109.60 | 1104.28 | 824.07 | 25.7% |
 | random-256k | 240.29 | 240.22 | 241.71 | -0.6% |
 
-The compressible corpora take **14–27% less time** on this machine; random data
-shows no meaningful improvement. Allocated bytes and allocation counts match.
-SHA-256 comparisons against `main` match for all six corpora in both default
-and fast modes. Other CPUs and workloads may have different results.
+The compressible corpora take **14–27% less time** on the i7-3610QM; random data
+shows no meaningful improvement.
 
-[Raw measurements and methodology](testdata/bench-results/simd/metadata.txt)
-include a control build of unchanged `main` with the experiment enabled.
+Repeated on 2026-10-24 on an **Intel i7-11800H (AVX and AVX2)** with the same
+Go version, baseline, corpora, and sampling method. The candidate is `4d8d4ec`.
+Go's runtime feature checks confirm both AVX and AVX2 are available. Median
+milliseconds and the ratio of the older CPU's SIMD time to this CPU's SIMD time:
+
+| Corpus | Main ms | Main + experiment ms | SIMD ms | Time saved vs main | SIMD speedup vs i7-3610QM |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| tiny-text | 10.66 | 9.96 | 8.30 | 22.1% | 2.03x |
+| mixed-256k | 1802.39 | 2936.84 | 1518.12 | 15.8% | 1.79x |
+| web-assets-256k | 627.06 | 668.45 | 428.66 | 31.6% | 1.88x |
+| records-logs-256k | 708.02 | 744.20 | 501.32 | 29.2% | 1.92x |
+| real-files-256k | 624.64 | 666.89 | 439.39 | 29.7% | 1.88x |
+| random-256k | 121.44 | 121.59 | 120.63 | 0.7% | 2.00x |
+
+On the i7-11800H, the compressible corpora take **16–32% less time**; the random
+data difference is within the observed sample variation. Both CPUs execute the
+same AVX implementation in these tables; the AVX2 broadcast experiment below
+measures an additional change.
+The unchanged `main` control with the experiment enabled is 62.9% slower on
+`mixed-256k` on this machine, consistently across all six samples. Its cause
+has not been isolated; the reported savings use ordinary `main` as the baseline.
+
+Allocated bytes and allocation counts match between builds. SHA-256 comparisons
+against `main` match for all six corpora in both default and fast modes, and the
+i7-11800H output digests also match the saved i7-3610QM digests.
+
+Raw measurements and methodology for the
+[i7-3610QM](testdata/bench-results/simd/metadata.txt) and
+[i7-11800H](testdata/bench-results/simd/i7-11800h/metadata.txt)
+include the control build of unchanged `main` with the experiment enabled.
 The same benchmark harness is used for all builds, including seeded random
-input. Despite its existing name, `mixed-256k` contains 812,032 bytes.
+input. The file fixtures use CRLF line endings; changing checkout line endings
+changes the inputs. Despite its existing name, `mixed-256k` contains 812,032 bytes.
 
 To repeat the comparison, copy the current `benchmark_test.go` into a separate
 checkout of the baseline commit and build its test binary with
@@ -167,6 +198,77 @@ identical fixtures, alternating their order:
 ```text
 <binary> -test.run=^$ -test.bench=^BenchmarkPureGoGzip$ -test.benchtime=2x -test.count=1 -test.cpu=1
 ```
+
+An **AVX2 broadcast prototype** was also tested on the i7-11800H. Go's
+[`archsimd` package supports AVX2](https://go.dev/blog/archsimd), including
+`BroadcastFloat64x4` and `X86.AVX2()` feature detection. The prototype uses a
+register broadcast to initialize the threshold on AVX2 CPUs, retaining the
+existing AVX load on older CPUs. Both paths still compare four `float64` values.
+Disassembly confirms that the AVX2 path emits `VBROADCASTSD`.
+
+The initial six samples of two operations were noisy, so a confirmation run
+used six samples of **five operations** per build, alternating AVX/AVX2 order.
+These are fresh, paired build comparisons with the same compiler settings,
+one Go CPU and PGO disabled; times are median milliseconds:
+
+| Corpus | Current AVX ms | AVX2 prototype ms | Time saved vs AVX |
+| --- | ---: | ---: | ---: |
+| tiny-text | 8.20 | 7.85 | 4.3% |
+| mixed-256k | 1478.97 | 1428.98 | 3.4% |
+| web-assets-256k | 432.98 | 429.54 | 0.8% |
+| records-logs-256k | 507.13 | 497.02 | 2.0% |
+| real-files-256k | 446.63 | 434.79 | 2.7% |
+| random-256k | 123.69 | 121.48 | 1.8% |
+
+The additional compression benefit is modest. Every AVX2 `mixed-256k` sample
+was faster than every AVX sample; ranges overlap for the other corpora, and
+the random-data difference is within the observed variation. Early-hit scans
+benefit more: `length-256/hit-0` falls from 9.132 ns to 2.869 ns (3.18x faster),
+while the 256-entry no-hit scan stays near 51 ns. Output digests and allocations
+match. Full suites pass for the prototype and for temporary builds that force
+its AVX and scalar fallbacks; Windows CPU override limitations are noted above.
+
+The prototype is saved as a
+[reproducible patch](testdata/bench-results/simd/i7-11800h/avx2-broadcast/candidate.patch);
+the production implementation remains unchanged. Both timing runs, assembly,
+validation and methodology are in the
+[AVX2 experiment notes](testdata/bench-results/simd/i7-11800h/avx2-broadcast/metadata.txt).
+
+Three follow-up **AVX2 cost-update prototypes** target `relaxStatLengths`, which
+accounts for 22.0% of samples in a fresh profile of the broadcast baseline.
+They compare four costs at a time with individual winning-length writes,
+pack eight length writes into a vector, or refine the first approach by keeping
+its short-range scalar loop inside the same function.
+
+The packed-write version improved long synthetic ranges but showed no convincing
+compression benefit. The other two were confirmed over six samples of five
+operations, with all six build-order permutations. These median milliseconds
+compare against a fresh **AVX2 broadcast baseline**, isolating the cost updates:
+
+| Corpus | Broadcast baseline ms | Scalar writes ms | Time saved | Inline scalar ms | Time saved |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| tiny-text | 7.91 | 8.02 | -1.4% | 8.02 | -1.4% |
+| mixed-256k | 1454.03 | 1367.48 | 6.0% | 1358.34 | 6.6% |
+| web-assets-256k | 436.55 | 433.24 | 0.8% | 431.85 | 1.1% |
+| records-logs-256k | 503.84 | 496.37 | 1.5% | 499.52 | 0.9% |
+| real-files-256k | 440.19 | 437.41 | 0.6% | 437.37 | 0.6% |
+| random-256k | 122.11 | 123.54 | -1.2% | 122.04 | 0.1% |
+
+The simpler scalar-write candidate saves **6.2% and 6.0% on the mixed corpus**
+in the initial and confirmation runs; every candidate sample beats every
+baseline sample in both runs. Other corpus ranges overlap. The inline refinement
+does not clearly outperform it or remove the tiny-text regression, so the simpler
+[scalar-write patch](testdata/bench-results/simd/i7-11800h/avx2-relax/scalar-writes.patch)
+is the strongest follow-up candidate. These incremental savings should not be
+combined with earlier measurements from separate runs.
+
+All 18 output hashes and allocation counts match. Full suites pass for all three
+prototypes with SIMD enabled, disabled, and with the new relaxation fallback
+forced. The production implementation remains unchanged. The
+[cost-update experiment notes](testdata/bench-results/simd/i7-11800h/avx2-relax/metadata.txt)
+retain all three patches, raw timings, assembly, profile and validation results.
+The i7-3610QM would use the scalar fallback; these prototypes have not been
+measured on that computer.
 
 ## Benchmarks
 

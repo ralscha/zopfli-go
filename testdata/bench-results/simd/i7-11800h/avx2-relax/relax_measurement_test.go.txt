@@ -1,0 +1,114 @@
+package zopfli
+
+import (
+	"crypto/sha256"
+	"fmt"
+	"math"
+	"testing"
+)
+
+func checkRelaxation(t *testing.T, costs [maxMatch + 1]float64, lengths [maxMatch + 1]uint16, start, end int, base float64, terms *[maxMatch + 1]float64) {
+	t.Helper()
+	wantCosts, wantLengths := costs, lengths
+	for i := start; i <= end; i++ {
+		candidate := base + terms[i]
+		if candidate < wantCosts[i] {
+			wantCosts[i] = candidate
+			wantLengths[i] = uint16(i)
+		}
+	}
+	relaxStatLengths(costs[:end+1], lengths[:end+1], start, end, base, terms)
+	for i := range costs {
+		if math.Float64bits(costs[i]) != math.Float64bits(wantCosts[i]) || lengths[i] != wantLengths[i] {
+			t.Fatalf("range [%d,%d], base %v, lane %d: cost bits %x want %x; length %d want %d", start, end, base, i, math.Float64bits(costs[i]), math.Float64bits(wantCosts[i]), lengths[i], wantLengths[i])
+		}
+	}
+}
+
+func TestRelaxationExperimentBoundaries(t *testing.T) {
+	values := []float64{math.Float64frombits(0x7ff8000000000123), math.Inf(-1), -3, math.Copysign(0, -1), 0, 1, 4.25, 8, math.Inf(1)}
+	for start := 0; start < 8; start++ {
+		for count := 0; count <= maxMatch+1-start; count++ {
+			var costs, terms [maxMatch + 1]float64
+			var lengths [maxMatch + 1]uint16
+			for i := range costs {
+				costs[i] = values[(i+count)%len(values)]
+				terms[i] = values[(i*5+count)%len(values)]
+				lengths[i] = uint16(0xB000 + i)
+			}
+			for _, base := range []float64{0, math.Copysign(0, -1), 4.25, math.Inf(1), math.Inf(-1), math.NaN()} {
+				checkRelaxation(t, costs, lengths, start, start+count-1, base, &terms)
+			}
+		}
+	}
+}
+
+func TestRelaxationExperimentMasks(t *testing.T) {
+	// Cover all eight-lane masks, alignments and overlapping tail positions.
+	for start := 0; start < 8; start++ {
+		for count := 1; count <= 24; count++ {
+			for mask := 0; mask < 256; mask++ {
+				var costs, terms [maxMatch + 1]float64
+				var lengths [maxMatch + 1]uint16
+				for i := range costs {
+					if mask&(1<<uint(i%8)) != 0 {
+						costs[i] = 2
+					} else {
+						costs[i] = 1 // Ties must preserve both cost bits and length.
+					}
+					lengths[i] = uint16(0xB000 + i)
+				}
+				checkRelaxation(t, costs, lengths, start, start+count-1, 1, &terms)
+			}
+		}
+	}
+}
+
+var relaxationBenchmarkResult uint16
+
+func BenchmarkRelaxStatLengths(b *testing.B) {
+	for _, count := range []int{4, 8, 16, 64, 256} {
+		for _, pattern := range []string{"none", "half", "all"} {
+			b.Run(fmt.Sprintf("length-%d/%s", count, pattern), func(b *testing.B) {
+				var seed, costs, terms [maxMatch + 1]float64
+				var lengths [maxMatch + 1]uint16
+				for i := range seed {
+					terms[i] = float64(i%7) * 0.125
+					seed[i] = 1 + terms[i]
+					if pattern == "all" || pattern == "half" && i%2 == 0 {
+						seed[i] += 1
+					}
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for range b.N {
+					// Reset every call so the hit pattern is stable after iteration one.
+					// This common copy is included in all three builds' timings.
+					copy(costs[3:3+count], seed[3:3+count])
+					relaxStatLengths(costs[:], lengths[:], 3, 3+count-1, 1, &terms)
+				}
+				relaxationBenchmarkResult = lengths[3+count-1]
+			})
+		}
+	}
+}
+
+func TestMeasurementDigests(t *testing.T) {
+	profiles := []struct {
+		name    string
+		options Options
+	}{{"default", DefaultOptions()}, {"fast", FastOptions()}}
+	for _, profile := range profiles {
+		for _, format := range []Format{FormatGzip, FormatZlib, FormatDeflate} {
+			out := Compress(&profile.options, format, deterministicOptimizationFixture())
+			fmt.Printf("fixture/%s/%d %d %x\n", profile.name, format, len(out), sha256.Sum256(out))
+		}
+	}
+	for _, corpus := range benchmarkCorpora() {
+		for _, profile := range profiles {
+			out := Compress(&profile.options, FormatGzip, corpus.data)
+			assertGzipRoundTrip(t, corpus.name, out, corpus.data)
+			fmt.Printf("%s/%s %d %x\n", corpus.name, profile.name, len(out), sha256.Sum256(out))
+		}
+	}
+}

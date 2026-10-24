@@ -1,0 +1,36 @@
+build: scalar-writes; mode: simd; GOEXPERIMENT=simd; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	18.724s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.688s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.421s
+build: scalar-writes; mode: forced-relax-scalar; GOEXPERIMENT=simd; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	18.983s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.647s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.373s
+build: scalar-writes; mode: ordinary; GOEXPERIMENT=; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	24.603s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.723s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.522s
+build: packed-writes; mode: simd; GOEXPERIMENT=simd; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	19.858s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.805s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.469s
+build: packed-writes; mode: forced-relax-scalar; GOEXPERIMENT=simd; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	18.932s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.604s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.370s
+build: packed-writes; mode: ordinary; GOEXPERIMENT=; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	23.201s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.580s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.361s
+build: inline-scalar; mode: simd; GOEXPERIMENT=simd; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	18.233s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.671s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.386s
+build: inline-scalar; mode: forced-relax-scalar; GOEXPERIMENT=simd; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	18.647s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.602s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.402s
+build: inline-scalar; mode: ordinary; GOEXPERIMENT=; GOAMD64=v1
+ok  	github.com/ralscha/zopfli-go	23.318s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.644s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.368s

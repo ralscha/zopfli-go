@@ -1,0 +1,28 @@
+mode: avx2; GOEXPERIMENT=simd; GODEBUG=
+ok  	github.com/ralscha/zopfli-go	18.560s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.694s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.412s
+=== RUN   TestMeasurementCPU
+    measurement_cpu_test.go:12: runtime=go1.27.3-X:simd CPUs=16 AVX=true AVX2=true
+--- PASS: TestMeasurementCPU (0.00s)
+PASS
+mode: avx-fallback; GOEXPERIMENT=simd; GODEBUG=cpu.avx2=off
+ok  	github.com/ralscha/zopfli-go	18.384s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.763s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.560s
+=== RUN   TestMeasurementCPU
+    measurement_cpu_test.go:12: runtime=go1.27.3-X:simd CPUs=16 AVX=true AVX2=true
+--- PASS: TestMeasurementCPU (0.00s)
+PASS
+mode: scalar-fallback; GOEXPERIMENT=simd; GODEBUG=cpu.avx=off,cpu.avx2=off
+ok  	github.com/ralscha/zopfli-go	18.284s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.614s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.515s
+=== RUN   TestMeasurementCPU
+    measurement_cpu_test.go:12: runtime=go1.27.3-X:simd CPUs=16 AVX=true AVX2=true
+--- PASS: TestMeasurementCPU (0.00s)
+PASS
+mode: ordinary-build; GOEXPERIMENT=; GODEBUG=
+ok  	github.com/ralscha/zopfli-go	23.944s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.709s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.553s

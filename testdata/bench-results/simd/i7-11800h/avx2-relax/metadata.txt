@@ -1,0 +1,177 @@
+Date: 2026-10-24 (Europe/Zurich)
+CPU: Intel Core i7-11800H @ 2.30 GHz, 16 logical CPUs
+Runtime probe: AVX=true, AVX2=true, AVX512=true
+Toolchain: go1.27.3 windows/amd64, GOEXPERIMENT=simd, GOAMD64=v1, PGO off
+Source commit: 4d8d4ece23bf25513173fa1932b21dab30a7e975
+
+Scope:
+  Test the highest-priority remaining SIMD target, relaxStatLengths: calculate
+  candidate costs and update both winning costs and their uint16 path lengths.
+  All builds include the previously measured AVX2 threshold broadcast in
+  firstImprovableLength. Therefore these comparisons isolate the additional
+  relaxation changes, not the gain over the original scalar compressor.
+  Production Go sources are unchanged; complete candidate patches are retained.
+
+Fresh baseline profile:
+  baseline-profile.pb.gz and baseline-profile.txt contain a new profile of the
+  broadcast baseline on this computer, aggregated across all six default gzip
+  corpora (four timed operations each plus calibration and round-trip checks).
+  The profiling binary uses the source commit's original test harness.
+  Command, run from the working repository root:
+    <binary> -test.run=^$ -test.bench=^BenchmarkPureGoGzip$ -test.benchtime=4x -test.count=1 -test.cpu=1 -test.cpuprofile=<profile>
+    go tool pprof -top -nodecount=30 <binary> <profile>
+  Duration 15.72 s, sampled CPU time 15.36 s. Flat sample shares:
+    firstImprovableLength: 30.53%
+    relaxStatLengths: 22.01%
+    getBestLengthsStat: 15.49%
+    storeRunsFromSublen: 3.58%
+    getMatch: 3.52%
+  profile-bench.txt is a profiled run, not part of the timing comparison.
+
+Builds:
+  baseline: AVX2 broadcast prototype plus original scalar relaxStatLengths.
+  scalar-writes: calculate and compare four float64 costs with AVX2-enabled
+    BroadcastFloat64x4 and IfElse; extract the four-bit improvement mask and
+    write winning uint16 lengths individually. Skip stores if no lane improves.
+    Ranges shorter than four entries call the original scalar helper.
+  packed-writes: calculate eight costs in two four-lane vectors. Convert the
+    comparison masks to integer vectors, use VPERMD to select one 32-bit word
+    per 64-bit mask, and VPACKSSDW to pack eight 16-bit masks. Combine the new
+    indices and old lengths using AND/ANDNOT/OR, then store eight lengths.
+    Ranges shorter than eight entries call the original scalar helper.
+  inline-scalar: refinement of scalar-writes that keeps the scalar fallback
+    loop inside the same function, avoiding a second call for short ranges.
+  All SIMD paths require X86.AVX2(), preserve strictly-less comparisons, use
+  overlapping full-vector tails, and execute VZEROUPPER before returning.
+  Assembly snapshots document the emitted instructions. The tested operations
+  require AVX/AVX2, not AVX-512, although this CPU also reports AVX-512 support.
+
+Source and reproduction:
+  Create separate source trees at the commit above.
+  For baseline, apply ../avx2-broadcast/candidate.patch.
+  For each candidate, apply its matching patch from this directory instead;
+    each complete patch already includes the broadcast change.
+  Copy relax_measurement_test.go.txt and measurement_cpu_test.go.txt into every
+    tree, dropping the .txt suffix. These are identical test/benchmark harnesses.
+  Build with GOEXPERIMENT=simd GOAMD64=v1 go test -c -pgo=off -o <binary>.
+  Run binaries from the working repository root to use its CRLF fixtures.
+  Corpus construction, seeded random input, fixture hashes and input sizes
+    are unchanged from ../metadata.txt and its input/fixture digest files.
+  GOFLAGS, GODEBUG and GOMAXPROCS unset during timing; -test.cpu=1 sets one Go CPU.
+  No explicit CPU affinity. No tests, builds, profiling, or other benchmarks
+    run concurrently with the timing runs. No samples are discarded.
+
+Initial compression comparison:
+  <binary> -test.run=^$ -test.bench=^BenchmarkPureGoGzip$ -test.benchtime=2x -test.count=1 -test.cpu=1
+  Six samples per build, two timed compressions plus Go's untimed calibration
+  per invocation. Default gzip, 15 iterations, block splitting enabled.
+  All six permutations, recorded with UTC timestamps in run-order.txt:
+    baseline, scalar-writes, packed-writes
+    packed-writes, scalar-writes, baseline
+    scalar-writes, packed-writes, baseline
+    baseline, packed-writes, scalar-writes
+    packed-writes, baseline, scalar-writes
+    scalar-writes, baseline, packed-writes
+  Medians are the mean of the third and fourth sorted samples.
+
+Initial median times (milliseconds):
+Corpus             Baseline  Scalar writes  Saved       Packed writes  Saved
+tiny-text             8.03       8.25        -2.7%           8.13       -1.2%
+mixed-256k         1479.59    1387.86         6.2%        1499.62       -1.4%
+web-assets-256k     436.66     428.22         1.9%         431.93        1.1%
+records-logs-256k   509.79     499.04         2.1%         506.29        0.7%
+real-files-256k     441.96     435.40         1.5%         440.47        0.3%
+random-256k         122.81     123.02        -0.2%         123.08       -0.2%
+  Saved = 100 * (1 - median candidate / median baseline), unrounded values.
+  Every scalar-writes mixed-256k sample is faster (1375.53-1412.41 ms) than
+  every baseline sample (1468.88-1485.75 ms). Other ranges overlap.
+  Packing all length writes is not an end-to-end win in this initial run.
+
+Confirmation compression comparison:
+  <binary> -test.run=^$ -test.bench=^BenchmarkPureGoGzip$ -test.benchtime=5x -test.count=1 -test.cpu=1
+  Six samples per build, five timed compressions per invocation. Same corpora,
+  settings and median calculation as above. All six permutations, recorded
+  with UTC timestamps in confirmation-order.txt:
+    baseline, scalar-writes, inline-scalar
+    inline-scalar, scalar-writes, baseline
+    scalar-writes, inline-scalar, baseline
+    baseline, inline-scalar, scalar-writes
+    inline-scalar, baseline, scalar-writes
+    scalar-writes, baseline, inline-scalar
+  Raw results: confirmation-{baseline,scalar-writes,inline-scalar}.txt.
+
+Confirmation median times (milliseconds):
+Corpus             Baseline  Scalar writes  Saved       Inline scalar  Saved
+tiny-text             7.91       8.02        -1.4%           8.02       -1.4%
+mixed-256k         1454.03    1367.48         6.0%        1358.34        6.6%
+web-assets-256k     436.55     433.24         0.8%         431.85        1.1%
+records-logs-256k   503.84     496.37         1.5%         499.52        0.9%
+real-files-256k     440.19     437.41         0.6%         437.37        0.6%
+random-256k         122.11     123.54        -1.2%         122.04        0.1%
+
+Confirmation sample ranges (milliseconds, minimum-maximum):
+Corpus             Baseline          Scalar writes     Inline scalar
+tiny-text             7.74-8.43          7.88-8.40          7.85-8.32
+mixed-256k         1448.69-1471.64    1340.92-1392.94    1349.87-1384.54
+web-assets-256k     429.72-463.97      427.63-440.78      424.77-436.75
+records-logs-256k   497.70-539.90      492.64-518.69      494.77-526.76
+real-files-256k     436.56-449.48      431.02-448.93      431.07-440.22
+random-256k         120.09-124.96      121.59-126.70      119.77-122.60
+
+Conclusion:
+  Scalar length writes are the promising candidate: their mixed-corpus gain
+  repeats at 6.2% and 6.0%, with every candidate sample faster than every
+  baseline sample in both runs. Inline scalar fallback reaches 6.6% in the
+  confirmation run, but its range overlaps the simpler candidate's range;
+  there is no convincing evidence that the extra duplicated loop is better.
+  Both variants retain a roughly 1.4% tiny-text regression in the confirmation
+  medians. All non-mixed corpus ranges overlap the baseline, so smaller gains
+  and regressions remain uncertain. No confidence intervals are claimed.
+  Retain scalar-writes.patch as the simplest follow-up candidate. Do not promote
+  packed writes based on their synthetic gains. Production remains unchanged.
+  These are incremental comparisons against the AVX2 broadcast baseline;
+  do not combine them arithmetically with earlier runs against main or AVX.
+  The older i7-3610QM has no AVX2 and would use the scalar relaxation fallback;
+  these candidates have not been measured on that computer.
+
+Focused benchmarks (*-micro.txt):
+  <binary> -test.run=^$ -test.bench=^BenchmarkRelaxStatLengths$ -test.benchtime=100ms -test.count=1 -test.cpu=1
+  Six rounds in the same six build-order permutations, after compression timing.
+  Five range sizes (4, 8, 16, 64, 256) and three improvement patterns (none,
+  alternating half, all). Costs are reset by a copy before EVERY invocation,
+  including in the timed section for all builds, so the hit pattern stays fixed.
+  These timings include reset overhead and are not isolated instruction latency.
+
+Selected median times (nanoseconds):
+Range/pattern       Baseline  Scalar writes  Packed writes
+4/half                 6.9225      8.7045         7.4530
+8/all                 10.830      10.195         14.020
+16/all                19.290      14.505         16.240
+64/half               44.555      49.110         33.665
+256/none             324.550     103.500        131.050
+256/all              333.500     172.600        131.500
+  Packed writes are effective on long synthetic ranges, but setup and mask
+  conversion cost hurt short ranges. The workload mix matters more than the
+  largest microbenchmark speedup. The inline-scalar refinement addresses an
+  additional short-range helper call in the simpler candidate.
+
+Correctness and fallback coverage:
+  *-checks.txt records pre-benchmark boundary and golden-output checks.
+  TestRelaxationExperimentBoundaries checks every legal range size, offsets
+    0-7, NaNs (including payload preservation), infinities, signed zero, ties,
+    and exact cost bits/lengths against an independent scalar reference.
+  TestRelaxationExperimentMasks checks all 256 eight-lane improvement masks
+    at offsets 0-7 and lengths 1-24, including overlapping tails. Costs and
+    lengths outside the selected range must remain unchanged.
+  Each compression benchmark performs a gzip round-trip check.
+  *-digests.txt records 18 hashes per build: all six corpora in default/fast
+    gzip plus the generated fixture in gzip/zlib/deflate with both profiles.
+    They are compared with the existing i7-11800H digests, which also match
+    the other computer's output. Allocation bytes and counts are compared too.
+  Full suites run for every candidate with GOEXPERIMENT=simd, with the
+    experiment unset, and with the relaxation fallback forced in a temporary
+    copy by replacing !archsimd.X86.AVX2() with true. See validation.txt.
+    This forces the new relaxation fallback only; the scanner is unchanged.
+  Windows Go 1.27.3 ignores GODEBUG CPU overrides, so those flags are not used
+    as evidence of fallback coverage. Forced source checks do not emulate
+    hardware lacking AVX2.

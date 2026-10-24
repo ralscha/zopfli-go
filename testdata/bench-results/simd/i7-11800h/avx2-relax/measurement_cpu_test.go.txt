@@ -1,0 +1,13 @@
+//go:build goexperiment.simd && amd64
+
+package zopfli
+
+import (
+	"runtime"
+	"simd/archsimd"
+	"testing"
+)
+
+func TestMeasurementCPU(t *testing.T) {
+	t.Logf("runtime=%s CPUs=%d AVX=%v AVX2=%v AVX512=%v", runtime.Version(), runtime.NumCPU(), archsimd.X86.AVX(), archsimd.X86.AVX2(), archsimd.X86.AVX512())
+}

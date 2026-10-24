@@ -1,0 +1,12 @@
+mode: scalar; GOEXPERIMENT=; GODEBUG=
+ok  	github.com/ralscha/zopfli-go	17.419s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.623s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.382s
+mode: simd; GOEXPERIMENT=simd; GODEBUG=
+ok  	github.com/ralscha/zopfli-go	14.477s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.558s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.343s
+mode: simd-fallback; GOEXPERIMENT=simd; GODEBUG=cpu.avx=off
+ok  	github.com/ralscha/zopfli-go	14.293s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-go	0.637s
+ok  	github.com/ralscha/zopfli-go/cmd/zopfli-task	0.545s

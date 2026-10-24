@@ -1,0 +1,22 @@
+diff --git a/squeeze_simd_amd64.go b/squeeze_simd_amd64.go
+index 9113b85..abc4118 100644
+--- a/squeeze_simd_amd64.go
++++ b/squeeze_simd_amd64.go
+@@ -11,9 +11,14 @@ func firstImprovableLength(costs []float64, start, end int, threshold float64) i
+ 	if end-start < 3 || !archsimd.X86.AVX() {
+ 		return firstImprovableLengthScalar(costs, start, end, threshold)
+ 	}
+-	// Loading repeated scalars only needs AVX. Go 1.27's register broadcast
+-	// intrinsic requires AVX2, even for floating-point vectors.
+-	bound := archsimd.LoadFloat64x4Array(&[4]float64{threshold, threshold, threshold, threshold})
++	// A register broadcast avoids constructing a repeated-scalar array on AVX2.
++	// Keep the AVX load for older CPUs, including the i7-3610QM.
++	var bound archsimd.Float64x4
++	if archsimd.X86.AVX2() {
++		bound = archsimd.BroadcastFloat64x4(threshold)
++	} else {
++		bound = archsimd.LoadFloat64x4Array(&[4]float64{threshold, threshold, threshold, threshold})
++	}
+ 	for start+4 <= end+1 {
+ 		current := archsimd.LoadFloat64x4(costs[start : start+4])
+ 		if mask := current.Greater(bound).ToBits(); mask != 0 {

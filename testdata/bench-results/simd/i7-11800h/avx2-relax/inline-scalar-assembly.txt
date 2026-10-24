@@ -1,0 +1,166 @@
+TEXT github.com/ralscha/zopfli-go.relaxStatLengths(SB) C:/w/ws/github/zopfli-go/.relax-measurement/inline-scalar/relax_experiment_amd64.go
+  relax_experiment_amd64.go:7	0x140178960		55			PUSHQ BP
+  relax_experiment_amd64.go:7	0x140178961		4889e5			MOVQ SP, BP
+  relax_experiment_amd64.go:7	0x140178964		4889442410		MOVQ AX, 0x10(SP)
+  relax_experiment_amd64.go:7	0x140178969		48897c2428		MOVQ DI, 0x28(SP)
+  relax_experiment_amd64.go:8	0x14017896e		4c89d2			MOVQ R10, DX
+  relax_experiment_amd64.go:8	0x140178971		4d29ca			SUBQ R9, R10
+  relax_experiment_amd64.go:8	0x140178974		4983fa03		CMPQ R10, $0x3
+  relax_experiment_amd64.go:8	0x140178978		7c20			JL 0x14017899a
+  cpu.go:28			0x14017897a		803d231f260000		CMPB internal/cpu.X86+68(SB), $0x0
+  relax_experiment_amd64.go:8	0x140178981		7417			JE 0x14017899a
+  other_gen_amd64.go:184	0x140178983		c58311c0		VMOVSD X0, X15, X0
+  relax_experiment_amd64.go:23	0x140178987		90			NOPL
+  relax_experiment_amd64.go:43	0x140178988		488d5a01		LEAQ 0x1(DX), BX
+  relax_experiment_amd64.go:48	0x14017898c		4883c2fd		ADDQ $-0x3, DX
+  other_gen_amd64.go:184	0x140178990		c4e27d19c0		VBROADCASTSD X0, Y0
+  relax_experiment_amd64.go:24	0x140178995		e9bb000000		JMP 0x140178a55
+  relax_experiment_amd64.go:11	0x14017899a		48ffc2			INCQ DX
+  relax_experiment_amd64.go:11	0x14017899d		0f1f00			NOPL 0(AX)
+  relax_experiment_amd64.go:11	0x1401789a0		4839d1			CMPQ CX, DX
+  relax_experiment_amd64.go:11	0x1401789a3		0f82a1000000		JB 0x140178a4a
+  relax_experiment_amd64.go:11	0x1401789a9		4939d1			CMPQ R9, DX
+  relax_experiment_amd64.go:11	0x1401789ac		0f8793000000		JA 0x140178a45
+  relax_experiment_amd64.go:11	0x1401789b2		4c89cb			MOVQ R9, BX
+  relax_experiment_amd64.go:11	0x1401789b5		4929c9			SUBQ CX, R9
+  relax_experiment_amd64.go:11	0x1401789b8		4889d9			MOVQ BX, CX
+  relax_experiment_amd64.go:11	0x1401789bb		48c1e303		SHLQ $0x3, BX
+  relax_experiment_amd64.go:11	0x1401789bf		49c1f93f		SARQ $0x3f, R9
+  relax_experiment_amd64.go:11	0x1401789c3		4921d9			ANDQ BX, R9
+  relax_experiment_amd64.go:11	0x1401789c6		4c01c8			ADDQ R9, AX
+  relax_experiment_amd64.go:12	0x1401789c9		4939d0			CMPQ R8, DX
+  relax_experiment_amd64.go:12	0x1401789cc		7271			JB 0x140178a3f
+  relax_experiment_amd64.go:13	0x1401789ce		418403			TESTB AL, 0(R11)
+  relax_experiment_amd64.go:12	0x1401789d1		488d3409		LEAQ 0(CX)(CX*1), SI
+  relax_experiment_amd64.go:12	0x1401789d5		4989c9			MOVQ CX, R9
+  relax_experiment_amd64.go:12	0x1401789d8		4c29c1			SUBQ R8, CX
+  relax_experiment_amd64.go:12	0x1401789db		48c1f93f		SARQ $0x3f, CX
+  relax_experiment_amd64.go:12	0x1401789df		4821ce			ANDQ CX, SI
+  relax_experiment_amd64.go:12	0x1401789e2		488d0c37		LEAQ 0(DI)(SI*1), CX
+  relax_experiment_amd64.go:13	0x1401789e6		4881fa03010000		CMPQ DX, $0x103
+  relax_experiment_amd64.go:13	0x1401789ed		7746			JA 0x140178a35
+  relax_experiment_amd64.go:13	0x1401789ef		498d91fdfeffff		LEAQ 0xfffffefd(R9), DX
+  relax_experiment_amd64.go:13	0x1401789f6		48c1fa3f		SARQ $0x3f, DX
+  relax_experiment_amd64.go:13	0x1401789fa		4821da			ANDQ BX, DX
+  relax_experiment_amd64.go:11	0x1401789fd		498d5a01		LEAQ 0x1(R10), BX
+  relax_experiment_amd64.go:13	0x140178a01		4c01da			ADDQ R11, DX
+  relax_experiment_amd64.go:14	0x140178a04		31f6			XORL SI, SI
+  relax_experiment_amd64.go:14	0x140178a06		eb03			JMP 0x140178a0b
+  relax_experiment_amd64.go:14	0x140178a08		48ffc6			INCQ SI
+  relax_experiment_amd64.go:14	0x140178a0b		4839de			CMPQ SI, BX
+  relax_experiment_amd64.go:14	0x140178a0e		7d23			JGE 0x140178a33
+  relax_experiment_amd64.go:14	0x140178a10		f20f100cf0		MOVSD_XMM 0(AX)(SI*8), X1
+  relax_experiment_amd64.go:15	0x140178a15		f20f1014f2		MOVSD_XMM 0(DX)(SI*8), X2
+  relax_experiment_amd64.go:15	0x140178a1a		f20f58d0		ADDSD X0, X2
+  relax_experiment_amd64.go:16	0x140178a1e		660f2eca		UCOMISD X2, X1
+  relax_experiment_amd64.go:16	0x140178a22		76e4			JBE 0x140178a08
+  relax_experiment_amd64.go:17	0x140178a24		f20f1114f0		MOVSD_XMM X2, 0(AX)(SI*8)
+  relax_experiment_amd64.go:18	0x140178a29		4a8d3c0e		LEAQ 0(SI)(R9*1), DI
+  relax_experiment_amd64.go:18	0x140178a2d		66893c71		MOVW DI, 0(CX)(SI*2)
+  relax_experiment_amd64.go:18	0x140178a31		ebd5			JMP 0x140178a08
+  relax_experiment_amd64.go:21	0x140178a33		5d			POPQ BP
+  relax_experiment_amd64.go:21	0x140178a34		c3			RET
+  relax_experiment_amd64.go:13	0x140178a35		b803010000		MOVL $0x103, AX
+  relax_experiment_amd64.go:13	0x140178a3a		e8612ff1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:12	0x140178a3f		90			NOPL
+  relax_experiment_amd64.go:12	0x140178a40		e85b2ff1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:11	0x140178a45		e8562ff1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:11	0x140178a4a		e8512ff1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:11	0x140178a4f		4989d1			MOVQ DX, R9
+  relax_experiment_amd64.go:11	0x140178a52		4c89c2			MOVQ R8, DX
+  relax_experiment_amd64.go:25	0x140178a55		4d8d4104		LEAQ 0x4(R9), R8
+  relax_experiment_amd64.go:25	0x140178a59		0f1f8000000000		NOPL 0(AX)
+  relax_experiment_amd64.go:25	0x140178a60		4c39c1			CMPQ CX, R8
+  relax_experiment_amd64.go:25	0x140178a63		0f82f5000000		JB 0x140178b5e
+  relax_experiment_amd64.go:25	0x140178a69		4d39c1			CMPQ R9, R8
+  relax_experiment_amd64.go:25	0x140178a6c		0f87e7000000		JA 0x140178b59
+  relax_experiment_amd64.go:26	0x140178a72		418403			TESTB AL, 0(R11)
+  relax_experiment_amd64.go:25	0x140178a75		4e8d14c8		LEAQ 0(AX)(R9*8), R10
+  relax_experiment_amd64.go:25	0x140178a79		0f1f8000000000		NOPL 0(AX)
+  relax_experiment_amd64.go:26	0x140178a80		4981f803010000		CMPQ R8, $0x103
+  relax_experiment_amd64.go:26	0x140178a87		0f87c2000000		JA 0x140178b4f
+  relax_experiment_amd64.go:26	0x140178a8d		4f8d24cb		LEAQ 0(R11)(R9*8), R12
+  relax_experiment_amd64.go:26	0x140178a91		c4c17d580c24		VADDPD 0(R12), Y0, Y1
+  slice_gen_amd64.go:240	0x140178a97		c4c17e6f12		VMOVDQU 0(R10), Y2
+  relax_experiment_amd64.go:27	0x140178a9c		c5f5c2da01		VCMPPD $0x1, Y2, Y1, Y3
+  relax_experiment_amd64.go:28	0x140178aa1		c57d50e3		VMOVMSKPD Y3, R12
+  relax_experiment_amd64.go:28	0x140178aa5		4584e4			TESTL R12, R12
+  relax_experiment_amd64.go:28	0x140178aa8		7463			JE 0x140178b0d
+  maskmerge_gen_amd64.go:580	0x140178aaa		c4e36d4cc930		VPBLENDVB Y3, Y1, Y2, Y1
+  relax_experiment_amd64.go:29	0x140178ab0		90			NOPL
+  relax_experiment_amd64.go:29	0x140178ab1		90			NOPL
+  slice_gen_amd64.go:246	0x140178ab2		c4c17e7f0a		VMOVDQU Y1, 0(R10)
+  relax_experiment_amd64.go:30	0x140178ab7		41f6c401		TESTL $0x1, R12
+  relax_experiment_amd64.go:30	0x140178abb		7411			JE 0x140178ace
+  relax_experiment_amd64.go:30	0x140178abd		0f1f00			NOPL 0(AX)
+  relax_experiment_amd64.go:31	0x140178ac0		4c39ce			CMPQ SI, R9
+  relax_experiment_amd64.go:31	0x140178ac3		0f8681000000		JBE 0x140178b4a
+  relax_experiment_amd64.go:31	0x140178ac9		6646890c4f		MOVW R9, 0(DI)(R9*2)
+  relax_experiment_amd64.go:33	0x140178ace		41f6c402		TESTL $0x2, R12
+  relax_experiment_amd64.go:33	0x140178ad2		740f			JE 0x140178ae3
+  relax_experiment_amd64.go:34	0x140178ad4		4d8d5101		LEAQ 0x1(R9), R10
+  relax_experiment_amd64.go:34	0x140178ad8		4c39d6			CMPQ SI, R10
+  relax_experiment_amd64.go:34	0x140178adb		7668			JBE 0x140178b45
+  relax_experiment_amd64.go:34	0x140178add		664689544f02		MOVW R10, 0x2(DI)(R9*2)
+  relax_experiment_amd64.go:36	0x140178ae3		41f6c404		TESTL $0x4, R12
+  relax_experiment_amd64.go:36	0x140178ae7		740f			JE 0x140178af8
+  relax_experiment_amd64.go:37	0x140178ae9		4d8d5102		LEAQ 0x2(R9), R10
+  relax_experiment_amd64.go:37	0x140178aed		4c39d6			CMPQ SI, R10
+  relax_experiment_amd64.go:37	0x140178af0		764b			JBE 0x140178b3d
+  relax_experiment_amd64.go:37	0x140178af2		664689544f04		MOVW R10, 0x4(DI)(R9*2)
+  relax_experiment_amd64.go:39	0x140178af8		41f6c408		TESTL $0x8, R12
+  relax_experiment_amd64.go:39	0x140178afc		740f			JE 0x140178b0d
+  relax_experiment_amd64.go:40	0x140178afe		4d8d5103		LEAQ 0x3(R9), R10
+  relax_experiment_amd64.go:40	0x140178b02		4c39d6			CMPQ SI, R10
+  relax_experiment_amd64.go:40	0x140178b05		7631			JBE 0x140178b38
+  relax_experiment_amd64.go:40	0x140178b07		664689544f06		MOVW R10, 0x6(DI)(R9*2)
+  relax_experiment_amd64.go:43	0x140178b0d		4c39c3			CMPQ BX, R8
+  relax_experiment_amd64.go:43	0x140178b10		7421			JE 0x140178b33
+  relax_experiment_amd64.go:47	0x140178b12		4983c108		ADDQ $0x8, R9
+  relax_experiment_amd64.go:47	0x140178b16		4939d9			CMPQ R9, BX
+  relax_experiment_amd64.go:47	0x140178b19		7e0a			JLE 0x140178b25
+  relax_experiment_amd64.go:48	0x140178b1b		4989d0			MOVQ DX, R8
+  relax_experiment_amd64.go:48	0x140178b1e		6690			NOPW
+  relax_experiment_amd64.go:48	0x140178b20		e92affffff		JMP 0x140178a4f
+  relax_experiment_amd64.go:48	0x140178b25		4d89c1			MOVQ R8, R9
+  relax_experiment_amd64.go:48	0x140178b28		4989d0			MOVQ DX, R8
+  relax_experiment_amd64.go:48	0x140178b2b		4c89ca			MOVQ R9, DX
+  relax_experiment_amd64.go:47	0x140178b2e		e91cffffff		JMP 0x140178a4f
+  relax_experiment_amd64.go:51	0x140178b33		c5f8775dc3		VZEROUPPER
+  relax_experiment_amd64.go:40	0x140178b38		e8632ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:37	0x140178b3d		0f1f00			NOPL 0(AX)
+  relax_experiment_amd64.go:37	0x140178b40		e85b2ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:34	0x140178b45		e8562ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:31	0x140178b4a		e8512ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:26	0x140178b4f		b803010000		MOVL $0x103, AX
+  relax_experiment_amd64.go:26	0x140178b54		e8472ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:25	0x140178b59		e8422ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:25	0x140178b5e		6690			NOPW
+  relax_experiment_amd64.go:25	0x140178b60		e83b2ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:25	0x140178b65		90			NOPL
+  :-1				0x140178b66		cc			INT $0x3
+  :-1				0x140178b67		cc			INT $0x3
+  :-1				0x140178b68		cc			INT $0x3
+  :-1				0x140178b69		cc			INT $0x3
+  :-1				0x140178b6a		cc			INT $0x3
+  :-1				0x140178b6b		cc			INT $0x3
+  :-1				0x140178b6c		cc			INT $0x3
+  :-1				0x140178b6d		cc			INT $0x3
+  :-1				0x140178b6e		cc			INT $0x3
+  :-1				0x140178b6f		cc			INT $0x3
+  :-1				0x140178b70		cc			INT $0x3
+  :-1				0x140178b71		cc			INT $0x3
+  :-1				0x140178b72		cc			INT $0x3
+  :-1				0x140178b73		cc			INT $0x3
+  :-1				0x140178b74		cc			INT $0x3
+  :-1				0x140178b75		cc			INT $0x3
+  :-1				0x140178b76		cc			INT $0x3
+  :-1				0x140178b77		cc			INT $0x3
+  :-1				0x140178b78		cc			INT $0x3
+  :-1				0x140178b79		cc			INT $0x3
+  :-1				0x140178b7a		cc			INT $0x3
+  :-1				0x140178b7b		cc			INT $0x3
+  :-1				0x140178b7c		cc			INT $0x3
+  :-1				0x140178b7d		cc			INT $0x3
+  :-1				0x140178b7e		cc			INT $0x3
+  :-1				0x140178b7f		cc			INT $0x3

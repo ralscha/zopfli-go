@@ -1,0 +1,122 @@
+TEXT github.com/ralscha/zopfli-go.firstImprovableLength(SB) C:/w/ws/github/zopfli-go/.avx2-measurement/avx/squeeze_simd_amd64.go
+  squeeze_simd_amd64.go:10	0x14017cc40		55			PUSHQ BP
+  squeeze_simd_amd64.go:10	0x14017cc41		4889e5			MOVQ SP, BP
+  squeeze_simd_amd64.go:10	0x14017cc44		4883ec20		SUBQ $0x20, SP
+  squeeze_simd_amd64.go:10	0x14017cc48		4889442430		MOVQ AX, 0x30(SP)
+  squeeze_simd_amd64.go:11	0x14017cc4d		4889f2			MOVQ SI, DX
+  squeeze_simd_amd64.go:11	0x14017cc50		4829fe			SUBQ DI, SI
+  squeeze_simd_amd64.go:11	0x14017cc53		4883fe03		CMPQ SI, $0x3
+  squeeze_simd_amd64.go:11	0x14017cc57		7c2b			JL 0x14017cc84
+  cpu.go:18			0x14017cc59		803de2cb250000		CMPB internal/cpu.X86+66(SB), $0x0
+  squeeze_simd_amd64.go:11	0x14017cc60		7422			JE 0x14017cc84
+  squeeze_simd_amd64.go:16	0x14017cc62		f20f110424		MOVSD_XMM X0, 0(SP)
+  squeeze_simd_amd64.go:16	0x14017cc67		f20f11442408		MOVSD_XMM X0, 0x8(SP)
+  squeeze_simd_amd64.go:16	0x14017cc6d		f20f11442410		MOVSD_XMM X0, 0x10(SP)
+  squeeze_simd_amd64.go:16	0x14017cc73		f20f11442418		MOVSD_XMM X0, 0x18(SP)
+  squeeze_simd_amd64.go:16	0x14017cc79		c5fe6f0424		VMOVDQU 0(SP), Y0
+  squeeze_simd_amd64.go:17	0x14017cc7e		488d5a01		LEAQ 0x1(DX), BX
+  squeeze_simd_amd64.go:17	0x14017cc82		eb58			JMP 0x14017ccdc
+  squeeze.go:72			0x14017cc84		48ffc2			INCQ DX
+  squeeze.go:72			0x14017cc87		4839d1			CMPQ CX, DX
+  squeeze.go:72			0x14017cc8a		7248			JB 0x14017ccd4
+  squeeze.go:72			0x14017cc8c		4839d7			CMPQ DI, DX
+  squeeze.go:72			0x14017cc8f		773e			JA 0x14017cccf
+  squeeze.go:72			0x14017cc91		4889fb			MOVQ DI, BX
+  squeeze.go:72			0x14017cc94		4829cf			SUBQ CX, DI
+  squeeze.go:72			0x14017cc97		4889d9			MOVQ BX, CX
+  squeeze.go:72			0x14017cc9a		48c1e303		SHLQ $0x3, BX
+  squeeze.go:72			0x14017cc9e		48c1ff3f		SARQ $0x3f, DI
+  squeeze.go:72			0x14017cca2		4821fb			ANDQ DI, BX
+  squeeze.go:72			0x14017cca5		4801c3			ADDQ AX, BX
+  squeeze.go:72			0x14017cca8		48ffc6			INCQ SI
+  squeeze.go:72			0x14017ccab		31ff			XORL DI, DI
+  squeeze.go:72			0x14017ccad		eb03			JMP 0x14017ccb2
+  squeeze.go:72			0x14017ccaf		48ffc7			INCQ DI
+  squeeze.go:72			0x14017ccb2		4839f7			CMPQ DI, SI
+  squeeze.go:72			0x14017ccb5		7d0f			JGE 0x14017ccc6
+  squeeze.go:72			0x14017ccb7		f20f100cfb		MOVSD_XMM 0(BX)(DI*8), X1
+  squeeze.go:73			0x14017ccbc		660f2ec8		UCOMISD X0, X1
+  squeeze.go:73			0x14017ccc0		76ed			JBE 0x14017ccaf
+  squeeze.go:74			0x14017ccc2		488d140f		LEAQ 0(DI)(CX*1), DX
+  squeeze_simd_amd64.go:12	0x14017ccc6		4889d0			MOVQ DX, AX
+  squeeze_simd_amd64.go:12	0x14017ccc9		4883c420		ADDQ $0x20, SP
+  squeeze_simd_amd64.go:12	0x14017cccd		5d			POPQ BP
+  squeeze_simd_amd64.go:12	0x14017ccce		c3			RET
+  squeeze.go:72			0x14017cccf		e8ccecf0ff		CALL runtime.panicBounds(SB)
+  squeeze.go:72			0x14017ccd4		e8c7ecf0ff		CALL runtime.panicBounds(SB)
+  squeeze_simd_amd64.go:17	0x14017ccd9		4889f7			MOVQ SI, DI
+  squeeze_simd_amd64.go:17	0x14017ccdc		488d7704		LEAQ 0x4(DI), SI
+  squeeze_simd_amd64.go:17	0x14017cce0		4839f3			CMPQ BX, SI
+  squeeze_simd_amd64.go:17	0x14017cce3		7c3b			JL 0x14017cd20
+  squeeze_simd_amd64.go:18	0x14017cce5		4839f1			CMPQ CX, SI
+  squeeze_simd_amd64.go:18	0x14017cce8		0f828e000000		JB 0x14017cd7c
+  squeeze_simd_amd64.go:18	0x14017ccee		4839f7			CMPQ DI, SI
+  squeeze_simd_amd64.go:18	0x14017ccf1		0f8780000000		JA 0x14017cd77
+  squeeze_simd_amd64.go:18	0x14017ccf7		4c8d04f8		LEAQ 0(AX)(DI*8), R8
+  slice_gen_amd64.go:240	0x14017ccfb		c4c17e6f08		VMOVDQU 0(R8), Y1
+  squeeze_simd_amd64.go:19	0x14017cd00		c5f5c2c80e		VCMPPD $0xe, Y0, Y1, Y1
+  squeeze_simd_amd64.go:19	0x14017cd05		c57d50c1		VMOVMSKPD Y1, R8
+  squeeze_simd_amd64.go:19	0x14017cd09		4584c0			TESTL R8, R8
+  squeeze_simd_amd64.go:19	0x14017cd0c		74cb			JE 0x14017ccd9
+  squeeze_simd_amd64.go:20	0x14017cd0e		c5f877410f		VZEROUPPER
+  squeeze_simd_amd64.go:21	0x14017cd13		bcc8488d04		MOVL $0x48d48c8, SP
+  squeeze_simd_amd64.go:21	0x14017cd18		0f4883c4205dc3		CMOVS 0xc35d20c4(BX), AX
+  squeeze_simd_amd64.go:21	0x14017cd1f		90			NOPL
+  squeeze_simd_amd64.go:29	0x14017cd20		4839fa			CMPQ DX, DI
+  squeeze_simd_amd64.go:29	0x14017cd23		7c3c			JL 0x14017cd61
+  squeeze_simd_amd64.go:30	0x14017cd25		4839d9			CMPQ CX, BX
+  squeeze_simd_amd64.go:30	0x14017cd28		7248			JB 0x14017cd72
+  squeeze_simd_amd64.go:30	0x14017cd2a		488d4afd		LEAQ -0x3(DX), CX
+  squeeze_simd_amd64.go:30	0x14017cd2e		4839d9			CMPQ CX, BX
+  squeeze_simd_amd64.go:30	0x14017cd31		773a			JA 0x14017cd6d
+  squeeze_simd_amd64.go:30	0x14017cd33		488d0cd0		LEAQ 0(AX)(DX*8), CX
+  squeeze_simd_amd64.go:30	0x14017cd37		488d49e8		LEAQ -0x18(CX), CX
+  slice_gen_amd64.go:240	0x14017cd3b		c5fe6f09		VMOVDQU 0(CX), Y1
+  squeeze_simd_amd64.go:31	0x14017cd3f		c5f5c2c00e		VCMPPD $0xe, Y0, Y1, Y0
+  squeeze_simd_amd64.go:31	0x14017cd44		c5fd50c8		VMOVMSKPD Y0, CX
+  squeeze_simd_amd64.go:31	0x14017cd48		84c9			TESTL CL, CL
+  squeeze_simd_amd64.go:31	0x14017cd4a		7415			JE 0x14017cd61
+  squeeze_simd_amd64.go:32	0x14017cd4c		c5f8770f		VZEROUPPER
+  squeeze_simd_amd64.go:33	0x14017cd50		bcc9488d04		MOVL $0x48d48c9, SP
+  squeeze_simd_amd64.go:33	0x14017cd55		0a488d			ORB -0x73(AX), CL
+  squeeze_simd_amd64.go:33	0x14017cd58		40fd			STD
+  squeeze_simd_amd64.go:33	0x14017cd5a		4883c420		ADDQ $0x20, SP
+  squeeze_simd_amd64.go:33	0x14017cd5e		5d			POPQ BP
+  squeeze_simd_amd64.go:33	0x14017cd5f		90			NOPL
+  squeeze_simd_amd64.go:33	0x14017cd60		c3			RET
+  squeeze_simd_amd64.go:38	0x14017cd61		c5f8774889		VZEROUPPER
+  squeeze_simd_amd64.go:39	0x14017cd66		d84883			FMUL -0x7d(AX)
+  squeeze_simd_amd64.go:39	0x14017cd69		c4			?
+  squeeze_simd_amd64.go:39	0x14017cd6a		205dc3			ANDB BL, -0x3d(BP)
+  squeeze_simd_amd64.go:30	0x14017cd6d		e82eecf0ff		CALL runtime.panicBounds(SB)
+  squeeze_simd_amd64.go:30	0x14017cd72		e829ecf0ff		CALL runtime.panicBounds(SB)
+  squeeze_simd_amd64.go:18	0x14017cd77		e824ecf0ff		CALL runtime.panicBounds(SB)
+  squeeze_simd_amd64.go:18	0x14017cd7c		0f1f4000		NOPL 0(AX)
+  squeeze_simd_amd64.go:18	0x14017cd80		e81becf0ff		CALL runtime.panicBounds(SB)
+  squeeze_simd_amd64.go:18	0x14017cd85		90			NOPL
+  :-1				0x14017cd86		cc			INT $0x3
+  :-1				0x14017cd87		cc			INT $0x3
+  :-1				0x14017cd88		cc			INT $0x3
+  :-1				0x14017cd89		cc			INT $0x3
+  :-1				0x14017cd8a		cc			INT $0x3
+  :-1				0x14017cd8b		cc			INT $0x3
+  :-1				0x14017cd8c		cc			INT $0x3
+  :-1				0x14017cd8d		cc			INT $0x3
+  :-1				0x14017cd8e		cc			INT $0x3
+  :-1				0x14017cd8f		cc			INT $0x3
+  :-1				0x14017cd90		cc			INT $0x3
+  :-1				0x14017cd91		cc			INT $0x3
+  :-1				0x14017cd92		cc			INT $0x3
+  :-1				0x14017cd93		cc			INT $0x3
+  :-1				0x14017cd94		cc			INT $0x3
+  :-1				0x14017cd95		cc			INT $0x3
+  :-1				0x14017cd96		cc			INT $0x3
+  :-1				0x14017cd97		cc			INT $0x3
+  :-1				0x14017cd98		cc			INT $0x3
+  :-1				0x14017cd99		cc			INT $0x3
+  :-1				0x14017cd9a		cc			INT $0x3
+  :-1				0x14017cd9b		cc			INT $0x3
+  :-1				0x14017cd9c		cc			INT $0x3
+  :-1				0x14017cd9d		cc			INT $0x3
+  :-1				0x14017cd9e		cc			INT $0x3
+  :-1				0x14017cd9f		cc			INT $0x3

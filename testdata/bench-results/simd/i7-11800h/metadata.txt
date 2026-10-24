@@ -1,0 +1,130 @@
+Date: 2026-10-24 (Europe/Zurich)
+Baseline: main, 8dde94a7e261f0e05c42dfe334686cfee288086f
+Candidate: SIMD implementation, 4d8d4ece23bf25513173fa1932b21dab30a7e975
+Toolchain: go1.27.3 windows/amd64, GOAMD64=v1, CGO_ENABLED=0
+OS: Windows build 26300.9711
+CPU: 11th Gen Intel Core i7-11800H @ 2.30 GHz; 16 logical CPUs
+Power plan: Balanced (381b4222-f694-41f0-9685-ff5bb260df2e)
+Runtime feature probe using simd/archsimd:
+  runtime=go1.27.3-X:simd windows/amd64 CPUs=16 AVX=true AVX2=true
+  Features checked with archsimd.X86.AVX() and archsimd.X86.AVX2().
+Both computers execute the same AVX implementation; there is no AVX2-specific
+kernel in this candidate. Cross-machine ratios measure the whole computers.
+
+Builds: go test -c -pgo=off -o <binary>
+  main.txt: baseline production sources, GOEXPERIMENT unset
+  main-experiment.txt: baseline production sources, GOEXPERIMENT=simd
+  simd.txt: candidate production sources, GOEXPERIMENT=simd
+GOFLAGS, GODEBUG and GOMAXPROCS unset during timing; -test.cpu=1 sets one Go CPU.
+No explicit OS CPU affinity. No tests, builds, linting, or other benchmark
+commands were run concurrently with the benchmarks.
+
+Sources were extracted with git archive into separate temporary directories.
+The candidate's benchmark_test.go and squeeze_simd_test.go were copied into
+both directories, along with identical temporary digest-reporting tests.
+Production sources were unchanged. All binaries ran from the working repository
+root, using its CRLF fixture files, rather than the LF files in the archives.
+fixture-digests.txt records the byte length and SHA-256 of each source fixture;
+input-digests.txt records the length and SHA-256 of each assembled corpus.
+The seeded random generator and all benchmark data match the earlier harness.
+Despite its name, mixed-256k has 812032 bytes, tiny-text has 3200 bytes, and the
+other corpora have 262144 bytes.
+
+Benchmark command for each sample:
+  <binary> -test.run=^$ -test.bench=^BenchmarkPureGoGzip$ -test.benchtime=2x -test.count=1 -test.cpu=1
+
+Six samples per build, using the same permutations as the i7-3610QM run:
+  main, main-experiment, simd
+  simd, main-experiment, main
+  main-experiment, simd, main
+  main, simd, main-experiment
+  simd, main, main-experiment
+  main-experiment, main, simd
+run-order.txt records UTC timestamps for each invocation. End-to-end benchmarks
+ran from 08:39:53 to 08:43:34 UTC (10:39:53 to 10:43:34 Europe/Zurich).
+
+DefaultOptions: 15 optimal-parsing iterations, block splitting enabled.
+Each sample has two timed compressions plus Go's untimed calibration invocation.
+Medians are the arithmetic mean of the third and fourth sorted samples.
+All samples are retained; there is no outlier removal.
+
+Median default gzip compression time (milliseconds):
+Corpus             Main       Main+experiment  SIMD       Saved vs main
+tiny-text            10.66       9.96              8.30       22.1%
+mixed-256k         1802.39    2936.84           1518.12       15.8%
+web-assets-256k     627.06     668.45            428.66       31.6%
+records-logs-256k   708.02     744.20            501.32       29.2%
+real-files-256k     624.64     666.89            439.39       29.7%
+random-256k         121.44     121.59            120.63        0.7%
+Saved = 100 * (1 - median SIMD / median main), using unrounded medians.
+
+Observed sample ranges (milliseconds, minimum to maximum):
+Corpus             Main                 SIMD
+tiny-text            10.09 -   11.08        8.12 -    8.64
+mixed-256k         1787.49 - 1856.31     1493.16 - 1705.16
+web-assets-256k     613.59 -  647.12      427.42 -  456.39
+records-logs-256k   691.85 -  732.17      495.34 -  512.33
+real-files-256k     617.27 -  679.75      432.05 -  445.16
+random-256k         119.47 -  129.34      117.26 -  125.11
+Random data's 0.7% median difference is within this observed variation.
+
+The main+experiment control is 62.9% slower than ordinary main on mixed-256k.
+Every control sample is slower (2870.85-3069.80 ms) than every ordinary-main
+sample (1787.49-1856.31 ms). The source and build settings were checked; the
+cause has not been isolated. SIMD saves 48.3% against that control, but the
+headline 15.8% uses ordinary main, as in the earlier computer's comparison.
+The other compressible corpora save 16.6-35.9% against the experiment control.
+
+Comparison with the saved i7-3610QM results in the parent directory:
+Corpus             Old saved vs main  New saved vs main  Old SIMD / new SIMD
+tiny-text               13.8%              22.1%              2.03x
+mixed-256k              15.9%              15.8%              1.79x
+web-assets-256k         26.5%              31.6%              1.88x
+records-logs-256k       23.2%              29.2%              1.92x
+real-files-256k         25.7%              29.7%              1.88x
+random-256k             -0.6%               0.7%              2.00x
+Both runs use Go 1.27.3, Windows/amd64, GOAMD64=v1, PGO off, the same baseline,
+six samples of two operations, one Go CPU and the same build-order permutations.
+
+Focused scan benchmarks (main-scan.txt, simd-scan.txt), run sequentially after
+the end-to-end benchmarks:
+  <binary> -test.run=^$ -test.bench=^BenchmarkFirstImprovableLength$ -test.benchtime=200ms -test.count=6 -test.cpu=1
+The 256-entry no-hit scan has median 99.400 ns on main and 50.075 ns with SIMD
+(1.99x faster), compared with 177.000 ns and 93.475 ns (1.89x) on the i7-3610QM.
+Short and early-hit scans can regress: length-256/hit-0 is 1.019 ns on main
+versus 8.994 ns with SIMD. End-to-end measurements include this overhead.
+
+Validation:
+  All timed benchmark invocations passed gzip round-trip checks.
+  Allocated bytes and allocation counts are identical across all three builds
+    for every corpus and every sample, and match the older computer's results.
+  main-digests.txt, main-experiment-digests.txt and simd-digests.txt match exactly.
+    Each contains default and fast gzip output SHA-256 digests for all six
+    corpora, plus the generated fixture in gzip, zlib and deflate formats for
+    both profiles (18 digests per build).
+  Those 18 digests also match ../main-digests.txt and ../simd-digests.txt.
+  Full test suite output is retained in validation.txt:
+    go test -pgo=off -count=1 ./...
+    GOEXPERIMENT=simd go test -pgo=off -count=1 ./...
+    GOEXPERIMENT=simd GODEBUG=cpu.avx=off go test -pgo=off -count=1 ./...
+  Environment-variable prefixes above are shell-independent notation; in
+    PowerShell set the corresponding $env: variables before running Go.
+
+Follow-up AVX2 experiment:
+  avx2-broadcast/ records a guarded BroadcastFloat64x4 prototype compared with
+  this AVX implementation, including its exact candidate patch and new timings.
+  A runtime probe during that follow-up found that Windows Go 1.27.3 ignores
+  GODEBUG CPU feature overrides: AVX and AVX2 remain true with cpu.avx=off and
+  cpu.avx2=off. The earlier command labelled simd-fallback in validation.txt
+  passed, but did not exercise the fallback. The follow-up uses temporary source
+  overrides to exercise the AVX and scalar paths explicitly. See its metadata
+  and forced-fallback-validation.txt for the corrected coverage.
+
+Follow-up AVX2 cost-update experiments:
+  avx2-relax/ records three relaxStatLengths prototypes against the AVX2
+  broadcast baseline, with exact patches, fresh profiling, focused benchmarks,
+  initial and confirmation compression runs, and fallback validation.
+  Four-lane cost calculations with scalar winning-length writes save 6.2% and
+  6.0% on mixed-256k in the two runs. Packing eight length writes is not a
+  convincing end-to-end win; inlining the scalar fallback is inconclusive.
+  See avx2-relax/metadata.txt for ranges, limitations and reproduction commands.

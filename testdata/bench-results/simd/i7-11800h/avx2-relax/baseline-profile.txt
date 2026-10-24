@@ -1,0 +1,39 @@
+File: profile-baseline.exe
+Build ID: C:\w\ws\github\zopfli-go\.relax-measurement\profile-baseline.exe2026-10-24 12:04:54.4494416 +0200 CEST
+Type: cpu
+Time: 2026-10-24 12:04:54 CEST
+Duration: 15.72s, Total samples = 15.36s (97.73%)
+Showing nodes accounting for 14.86s, 96.74% of 15.36s total
+Dropped 64 nodes (cum <= 0.08s)
+Showing top 30 nodes out of 64
+      flat  flat%   sum%        cum   cum%
+     4.69s 30.53% 30.53%      5.02s 32.68%  github.com/ralscha/zopfli-go.firstImprovableLength
+     3.38s 22.01% 52.54%      3.38s 22.01%  github.com/ralscha/zopfli-go.relaxStatLengths
+     2.38s 15.49% 68.03%     11.62s 75.65%  github.com/ralscha/zopfli-go.getBestLengthsStat
+     0.56s  3.65% 71.68%      2.01s 13.09%  github.com/ralscha/zopfli-go.findLongestMatch
+     0.55s  3.58% 75.26%      0.64s  4.17%  github.com/ralscha/zopfli-go.(*longestMatchCache).storeRunsFromSublen
+     0.54s  3.52% 78.78%      0.56s  3.65%  github.com/ralscha/zopfli-go.getMatch (inline)
+     0.35s  2.28% 81.05%      0.35s  2.28%  github.com/ralscha/zopfli-go.(*longestMatchCache).entryComplete (inline)
+     0.33s  2.15% 83.20%      0.62s  4.04%  github.com/ralscha/zopfli-go.encodeTree
+     0.28s  1.82% 85.03%      0.28s  1.82%  github.com/ralscha/zopfli-go.(*longestMatchCache).runView (inline)
+     0.27s  1.76% 86.78%      0.29s  1.89%  github.com/ralscha/zopfli-go.boundaryPM
+     0.18s  1.17% 87.96%      0.18s  1.17%  github.com/ralscha/zopfli-go.(*hash).update
+     0.17s  1.11% 89.06%      0.17s  1.11%  simd/archsimd.LoadFloat64x4 (inline)
+     0.15s  0.98% 90.04%      0.15s  0.98%  runtime.memmove
+     0.13s  0.85% 90.89%      0.13s  0.85%  github.com/ralscha/zopfli-go.getDistExtraBits
+     0.13s  0.85% 91.73%      0.13s  0.85%  github.com/ralscha/zopfli-go.getDistSymbol
+     0.12s  0.78% 92.51%      0.16s  1.04%  github.com/ralscha/zopfli-go.(*lz77Store).storeLitLenDist
+     0.12s  0.78% 93.29%      0.12s  0.78%  github.com/ralscha/zopfli-go.firstImprovableLengthScalar (inline)
+     0.09s  0.59% 93.88%      0.20s  1.30%  github.com/ralscha/zopfli-go.fillUint16s (inline)
+     0.08s  0.52% 94.40%      0.54s  3.52%  github.com/ralscha/zopfli-go.lengthLimitedCodeLengths
+     0.08s  0.52% 94.92%      0.08s  0.52%  github.com/ralscha/zopfli-go.lengthsToSymbols
+     0.07s  0.46% 95.38%      0.09s  0.59%  github.com/ralscha/zopfli-go.(*longestMatchCache).appendRun
+     0.07s  0.46% 95.83%      0.09s  0.59%  github.com/ralscha/zopfli-go.calculateBlockSymbolSizeSmall
+     0.03s   0.2% 96.03%      0.23s  1.50%  github.com/ralscha/zopfli-go.(*longestMatchCache).cachedLongestMatch (inline)
+     0.02s  0.13% 96.16%      0.66s  4.30%  github.com/ralscha/zopfli-go.(*longestMatchCache).storeMatch
+     0.02s  0.13% 96.29%      0.20s  1.30%  github.com/ralscha/zopfli-go.followPath
+     0.02s  0.13% 96.42%      0.33s  2.15%  github.com/ralscha/zopfli-go.lengthLimitedCodeLengthsWithPool
+     0.02s  0.13% 96.55%      0.68s  4.43%  github.com/ralscha/zopfli-go.storeInLongestMatchCache
+     0.01s 0.065% 96.61%      0.63s  4.10%  github.com/ralscha/zopfli-go.calculateTreeSize
+     0.01s 0.065% 96.68%      0.14s  0.91%  github.com/ralscha/zopfli-go.lz77Greedy
+     0.01s 0.065% 96.74%      0.09s  0.59%  slices.pdqsortCmpFunc[go.shape.struct { github.com/ralscha/zopfli-go.weight int; github.com/ralscha/zopfli-go.tail github.com/ralscha/zopfli-go.nodeIndex; github.com/ralscha/zopfli-go.count int }]

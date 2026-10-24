@@ -62,3 +62,13 @@ Implementation notes for this Go experiment:
   ClearAVXUpperBits must precede returning to scalar Go.
   An overlapping vector handles the tail so the compiler need not spill
     a live scalar threshold with SSE before clearing the upper AVX registers.
+
+Additional machine:
+  i7-11800h/ contains the 2026-10-24 repeat on an Intel Core i7-11800H
+  with AVX and AVX2, using the same baseline, toolchain, corpora and sampling
+  method. See i7-11800h/metadata.txt and the comparison tables in README.md.
+  The files in this directory remain the original i7-3610QM measurements.
+  The AVX2 follow-up also found that Windows Go 1.27.3 ignores GODEBUG CPU
+  feature overrides. The cpu.avx=off command listed above is not evidence of
+  scalar fallback coverage on Windows; see i7-11800h/avx2-broadcast/metadata.txt
+  for explicit fallback checks using temporary source overrides.

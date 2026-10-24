@@ -1,0 +1,8 @@
+=== RUN   TestMeasurementCPU
+    measurement_cpu_test.go:12: runtime=go1.27.3-X:simd CPUs=16 AVX=true AVX2=true
+--- PASS: TestMeasurementCPU (0.00s)
+=== RUN   TestSIMDCompressionMatchesMain
+--- PASS: TestSIMDCompressionMatchesMain (0.39s)
+=== RUN   TestFirstImprovableLengthBoundaries
+--- PASS: TestFirstImprovableLengthBoundaries (0.01s)
+PASS

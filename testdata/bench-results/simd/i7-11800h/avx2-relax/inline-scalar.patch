@@ -1,0 +1,104 @@
+diff --git a/squeeze.go b/squeeze.go
+index abc6ed0..b78708d 100644
+--- a/squeeze.go
++++ b/squeeze.go
+@@ -95,7 +95,7 @@ func relaxLengthSegment(costs []float64, lengths []uint16, start, end int, newCo
+ 
+ // relaxStatLengths relaxes [start, end] against the entropy cost model, where
+ // the candidate cost varies with the length symbol of each length.
+-func relaxStatLengths(costs []float64, lengths []uint16, start, end int, basePlusDist float64, lengthCosts *[maxMatch + 1]float64) {
++func relaxStatLengthsScalar(costs []float64, lengths []uint16, start, end int, basePlusDist float64, lengthCosts *[maxMatch + 1]float64) {
+ 	count := end + 1 - start
+ 	segment := costs[start : start+count]
+ 	segmentLengths := lengths[start : start+count]
+diff --git a/squeeze_simd_amd64.go b/squeeze_simd_amd64.go
+index 9113b85..abc4118 100644
+--- a/squeeze_simd_amd64.go
++++ b/squeeze_simd_amd64.go
+@@ -11,9 +11,14 @@ func firstImprovableLength(costs []float64, start, end int, threshold float64) i
+ 	if end-start < 3 || !archsimd.X86.AVX() {
+ 		return firstImprovableLengthScalar(costs, start, end, threshold)
+ 	}
+-	// Loading repeated scalars only needs AVX. Go 1.27's register broadcast
+-	// intrinsic requires AVX2, even for floating-point vectors.
+-	bound := archsimd.LoadFloat64x4Array(&[4]float64{threshold, threshold, threshold, threshold})
++	// A register broadcast avoids constructing a repeated-scalar array on AVX2.
++	// Keep the AVX load for older CPUs, including the i7-3610QM.
++	var bound archsimd.Float64x4
++	if archsimd.X86.AVX2() {
++		bound = archsimd.BroadcastFloat64x4(threshold)
++	} else {
++		bound = archsimd.LoadFloat64x4Array(&[4]float64{threshold, threshold, threshold, threshold})
++	}
+ 	for start+4 <= end+1 {
+ 		current := archsimd.LoadFloat64x4(costs[start : start+4])
+ 		if mask := current.Greater(bound).ToBits(); mask != 0 {
+diff --git a/relax_experiment_amd64.go b/relax_experiment_amd64.go
+new file mode 100644
+--- /dev/null
++++ b/relax_experiment_amd64.go
+@@ -0,0 +1,52 @@
++//go:build goexperiment.simd && amd64
++
++package zopfli
++
++import "simd/archsimd"
++
++func relaxStatLengths(costs []float64, lengths []uint16, start, end int, basePlusDist float64, lengthCosts *[maxMatch + 1]float64) {
++	if end-start < 3 || !archsimd.X86.AVX2() {
++		// Keep short ranges in this function so they do not pay for a second call.
++		count := end + 1 - start
++		segment := costs[start : start+count]
++		segmentLengths := lengths[start : start+count]
++		segmentCosts := lengthCosts[start : start+count]
++		for index, current := range segment {
++			newCost := basePlusDist + segmentCosts[index]
++			if newCost < current {
++				segment[index] = newCost
++				segmentLengths[index] = uint16(start + index)
++			}
++		}
++		return
++	}
++	base := archsimd.BroadcastFloat64x4(basePlusDist)
++	for position := start; ; {
++		old := archsimd.LoadFloat64x4(costs[position : position+4])
++		candidate := base.Add(archsimd.LoadFloat64x4(lengthCosts[position : position+4]))
++		improved := candidate.Less(old)
++		if mask := improved.ToBits(); mask != 0 {
++			candidate.IfElse(improved, old).Store(costs[position : position+4])
++			if mask&1 != 0 {
++				lengths[position] = uint16(position)
++			}
++			if mask&2 != 0 {
++				lengths[position+1] = uint16(position + 1)
++			}
++			if mask&4 != 0 {
++				lengths[position+2] = uint16(position + 2)
++			}
++			if mask&8 != 0 {
++				lengths[position+3] = uint16(position + 3)
++			}
++		}
++		if position+4 == end+1 {
++			break
++		}
++		position += 4
++		if position+4 > end+1 {
++			position = end - 3
++		}
++	}
++	archsimd.ClearAVXUpperBits()
++}
+diff --git a/relax_experiment_scalar.go b/relax_experiment_scalar.go
+new file mode 100644
+--- /dev/null
++++ b/relax_experiment_scalar.go
+@@ -0,0 +1,7 @@
++//go:build !goexperiment.simd || !amd64
++
++package zopfli
++
++func relaxStatLengths(costs []float64, lengths []uint16, start, end int, basePlusDist float64, lengthCosts *[maxMatch + 1]float64) {
++	relaxStatLengthsScalar(costs, lengths, start, end, basePlusDist, lengthCosts)
++}

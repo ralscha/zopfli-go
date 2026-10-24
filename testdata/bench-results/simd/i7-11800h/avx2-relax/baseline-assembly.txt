@@ -1,0 +1,79 @@
+TEXT github.com/ralscha/zopfli-go.relaxStatLengths(SB) C:/w/ws/github/zopfli-go/.relax-measurement/baseline/squeeze.go
+  squeeze.go:98		0x140178aa0		55			PUSHQ BP
+  squeeze.go:98		0x140178aa1		4889e5			MOVQ SP, BP
+  squeeze.go:98		0x140178aa4		4889442410		MOVQ AX, 0x10(SP)
+  squeeze.go:98		0x140178aa9		48897c2428		MOVQ DI, 0x28(SP)
+  squeeze.go:100	0x140178aae		498d5201		LEAQ 0x1(R10), DX
+  squeeze.go:100	0x140178ab2		4839d1			CMPQ CX, DX
+  squeeze.go:100	0x140178ab5		0f82aa000000		JB 0x140178b65
+  squeeze.go:100	0x140178abb		0f1f440000		NOPL 0(AX)(AX*1)
+  squeeze.go:100	0x140178ac0		4939d1			CMPQ R9, DX
+  squeeze.go:100	0x140178ac3		0f8795000000		JA 0x140178b5e
+  squeeze.go:100	0x140178ac9		4c89cb			MOVQ R9, BX
+  squeeze.go:100	0x140178acc		4929c9			SUBQ CX, R9
+  squeeze.go:100	0x140178acf		4889d9			MOVQ BX, CX
+  squeeze.go:100	0x140178ad2		48c1e303		SHLQ $0x3, BX
+  squeeze.go:100	0x140178ad6		49c1f93f		SARQ $0x3f, R9
+  squeeze.go:100	0x140178ada		4921d9			ANDQ BX, R9
+  squeeze.go:100	0x140178add		4c01c8			ADDQ R9, AX
+  squeeze.go:100	0x140178ae0		4929ca			SUBQ CX, R10
+  squeeze.go:101	0x140178ae3		4939d0			CMPQ R8, DX
+  squeeze.go:101	0x140178ae6		7271			JB 0x140178b59
+  squeeze.go:102	0x140178ae8		418403			TESTB AL, 0(R11)
+  squeeze.go:101	0x140178aeb		488d3409		LEAQ 0(CX)(CX*1), SI
+  squeeze.go:101	0x140178aef		4989c9			MOVQ CX, R9
+  squeeze.go:101	0x140178af2		4c29c1			SUBQ R8, CX
+  squeeze.go:101	0x140178af5		48c1f93f		SARQ $0x3f, CX
+  squeeze.go:101	0x140178af9		4821ce			ANDQ CX, SI
+  squeeze.go:101	0x140178afc		488d0c37		LEAQ 0(DI)(SI*1), CX
+  squeeze.go:102	0x140178b00		4881fa03010000		CMPQ DX, $0x103
+  squeeze.go:102	0x140178b07		7746			JA 0x140178b4f
+  squeeze.go:102	0x140178b09		498d91fdfeffff		LEAQ 0xfffffefd(R9), DX
+  squeeze.go:102	0x140178b10		48c1fa3f		SARQ $0x3f, DX
+  squeeze.go:102	0x140178b14		4821da			ANDQ BX, DX
+  squeeze.go:100	0x140178b17		498d5a01		LEAQ 0x1(R10), BX
+  squeeze.go:102	0x140178b1b		4c01da			ADDQ R11, DX
+  squeeze.go:103	0x140178b1e		31f6			XORL SI, SI
+  squeeze.go:103	0x140178b20		eb03			JMP 0x140178b25
+  squeeze.go:103	0x140178b22		48ffc6			INCQ SI
+  squeeze.go:103	0x140178b25		4839de			CMPQ SI, BX
+  squeeze.go:103	0x140178b28		7d23			JGE 0x140178b4d
+  squeeze.go:103	0x140178b2a		f20f100cf0		MOVSD_XMM 0(AX)(SI*8), X1
+  squeeze.go:104	0x140178b2f		f20f1014f2		MOVSD_XMM 0(DX)(SI*8), X2
+  squeeze.go:104	0x140178b34		f20f58d0		ADDSD X0, X2
+  squeeze.go:105	0x140178b38		660f2eca		UCOMISD X2, X1
+  squeeze.go:105	0x140178b3c		76e4			JBE 0x140178b22
+  squeeze.go:106	0x140178b3e		f20f1114f0		MOVSD_XMM X2, 0(AX)(SI*8)
+  squeeze.go:107	0x140178b43		4a8d3c0e		LEAQ 0(SI)(R9*1), DI
+  squeeze.go:107	0x140178b47		66893c71		MOVW DI, 0(CX)(SI*2)
+  squeeze.go:107	0x140178b4b		ebd5			JMP 0x140178b22
+  squeeze.go:110	0x140178b4d		5d			POPQ BP
+  squeeze.go:110	0x140178b4e		c3			RET
+  squeeze.go:102	0x140178b4f		b803010000		MOVL $0x103, AX
+  squeeze.go:102	0x140178b54		e8472ef1ff		CALL runtime.panicBounds(SB)
+  squeeze.go:101	0x140178b59		e8422ef1ff		CALL runtime.panicBounds(SB)
+  squeeze.go:100	0x140178b5e		6690			NOPW
+  squeeze.go:100	0x140178b60		e83b2ef1ff		CALL runtime.panicBounds(SB)
+  squeeze.go:100	0x140178b65		e8362ef1ff		CALL runtime.panicBounds(SB)
+  squeeze.go:100	0x140178b6a		90			NOPL
+  :-1			0x140178b6b		cc			INT $0x3
+  :-1			0x140178b6c		cc			INT $0x3
+  :-1			0x140178b6d		cc			INT $0x3
+  :-1			0x140178b6e		cc			INT $0x3
+  :-1			0x140178b6f		cc			INT $0x3
+  :-1			0x140178b70		cc			INT $0x3
+  :-1			0x140178b71		cc			INT $0x3
+  :-1			0x140178b72		cc			INT $0x3
+  :-1			0x140178b73		cc			INT $0x3
+  :-1			0x140178b74		cc			INT $0x3
+  :-1			0x140178b75		cc			INT $0x3
+  :-1			0x140178b76		cc			INT $0x3
+  :-1			0x140178b77		cc			INT $0x3
+  :-1			0x140178b78		cc			INT $0x3
+  :-1			0x140178b79		cc			INT $0x3
+  :-1			0x140178b7a		cc			INT $0x3
+  :-1			0x140178b7b		cc			INT $0x3
+  :-1			0x140178b7c		cc			INT $0x3
+  :-1			0x140178b7d		cc			INT $0x3
+  :-1			0x140178b7e		cc			INT $0x3
+  :-1			0x140178b7f		cc			INT $0x3

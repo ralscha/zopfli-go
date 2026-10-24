@@ -1,0 +1,121 @@
+build: scalar-writes
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkRelaxStatLengths/length-4/none         	15973164	         7.622 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/half         	13822177	         8.691 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/all          	14037385	         8.530 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/none         	14456785	         8.883 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/half         	11435214	        10.13 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/all          	11955168	        10.40 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/none        	11704347	        10.41 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/half        	 9266122	        13.14 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/all         	 8645283	        14.09 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/none        	 3860742	        31.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/half        	 2537817	        48.29 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/all         	 2303456	        50.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/none       	 1000000	       107.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/half       	  724243	       172.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/all        	  710437	       172.7 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkRelaxStatLengths/length-4/none         	15435472	         7.836 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/half         	13752320	         8.793 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/all          	13569747	         8.708 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/none         	14050370	         8.827 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/half         	12028386	        10.47 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/all          	12079482	        10.23 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/none        	12131014	        10.16 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/half        	 8263722	        13.05 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/all         	 9096421	        14.67 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/none        	 3743016	        31.84 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/half        	 2464120	        47.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/all         	 2381806	        50.94 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/none       	 1208853	        99.60 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/half       	  707839	       173.9 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/all        	  713817	       172.5 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkRelaxStatLengths/length-4/none         	15128210	         7.836 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/half         	13227950	         9.076 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/all          	14317416	         8.767 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/none         	13848816	         8.813 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/half         	12049765	        10.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/all          	11846936	        10.16 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/none        	12142676	         9.917 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/half        	 9424404	        13.66 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/all         	 7331511	        14.59 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/none        	 3761235	        31.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/half        	 2453158	        50.67 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/all         	 2334148	        52.38 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/none       	 1000000	       100.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/half       	  724636	       169.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/all        	  712503	       170.6 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkRelaxStatLengths/length-4/none         	16282225	         7.445 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/half         	13842585	         8.591 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/all          	14236226	         8.465 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/none         	14394874	         8.374 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/half         	11615413	        10.13 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/all          	12024409	        10.07 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/none        	11990886	        10.03 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/half        	 9275648	        12.76 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/all         	 8953753	        14.21 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/none        	 3643363	        32.85 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/half        	 2313453	        50.08 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/all         	 2028766	        71.65 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/none       	 1000000	       108.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/half       	  648087	       189.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/all        	  697430	       172.8 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkRelaxStatLengths/length-4/none         	15142146	         7.838 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/half         	14165642	         8.718 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/all          	14431922	         8.526 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/none         	14458353	         8.402 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/half         	12292436	         9.965 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/all          	11827903	        10.06 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/none        	11291991	        10.33 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/half        	 9247627	        13.39 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/all         	 8611039	        15.30 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/none        	 3731389	        32.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/half        	 2459151	        49.93 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/all         	 2268834	        52.91 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/none       	 1000000	       104.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/half       	  672004	       173.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/all        	  693882	       176.5 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: windows
+goarch: amd64
+pkg: github.com/ralscha/zopfli-go
+cpu: 11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz
+BenchmarkRelaxStatLengths/length-4/none         	15319213	         7.635 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/half         	14158623	         8.599 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-4/all          	14065027	         8.435 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/none         	14532242	         8.738 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/half         	12027181	         9.929 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-8/all          	12182617	        10.32 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/none        	11254395	        10.57 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/half        	 8633900	        13.45 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-16/all         	 8256160	        14.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/none        	 3830744	        31.63 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/half        	 2513241	        47.46 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-64/all         	 2386867	        50.95 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/none       	 1000000	       102.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/half       	  695368	       169.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRelaxStatLengths/length-256/all        	  714454	       170.9 ns/op	       0 B/op	       0 allocs/op
+PASS

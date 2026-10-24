@@ -1,0 +1,154 @@
+TEXT github.com/ralscha/zopfli-go.relaxStatLengths(SB) C:/w/ws/github/zopfli-go/.relax-measurement/packed-writes/relax_experiment_amd64.go
+  relax_experiment_amd64.go:7	0x140178960		4c8d6424f8		LEAQ -0x8(SP), R12
+  relax_experiment_amd64.go:7	0x140178965		4d3b6610		CMPQ R12, 0x10(R14)
+  relax_experiment_amd64.go:7	0x140178969		0f861c020000		JBE 0x140178b8b
+  relax_experiment_amd64.go:7	0x14017896f		55			PUSHQ BP
+  relax_experiment_amd64.go:7	0x140178970		4889e5			MOVQ SP, BP
+  relax_experiment_amd64.go:7	0x140178973		4883c480		ADDQ $-0x80, SP
+  relax_experiment_amd64.go:7	0x140178977		4889842490000000	MOVQ AX, 0x90(SP)
+  relax_experiment_amd64.go:7	0x14017897f		4889bc24a8000000	MOVQ DI, 0xa8(SP)
+  relax_experiment_amd64.go:8	0x140178987		4c89d2			MOVQ R10, DX
+  relax_experiment_amd64.go:8	0x14017898a		4c29ca			SUBQ R9, DX
+  relax_experiment_amd64.go:8	0x14017898d		4883fa07		CMPQ DX, $0x7
+  relax_experiment_amd64.go:8	0x140178991		0f8c84000000		JL 0x140178a1b
+  cpu.go:28			0x140178997		803d062f260000		CMPB internal/cpu.X86+68(SB), $0x0
+  cpu.go:28			0x14017899e		6690			NOPW
+  relax_experiment_amd64.go:8	0x1401789a0		7479			JE 0x140178a1b
+  other_gen_amd64.go:184	0x1401789a2		c58311c0		VMOVSD X0, X15, X0
+  relax_experiment_amd64.go:12	0x1401789a6		90			NOPL
+  relax_experiment_amd64.go:16	0x1401789a7		488d542460		LEAQ 0x60(SP), DX
+  relax_experiment_amd64.go:16	0x1401789ac		440f113a		MOVUPS X15, 0(DX)
+  relax_experiment_amd64.go:16	0x1401789b0		440f117a10		MOVUPS X15, 0x10(DX)
+  relax_experiment_amd64.go:16	0x1401789b5		c744246402000000	MOVL $0x2, 0x64(SP)
+  relax_experiment_amd64.go:16	0x1401789bd		48ba0400000006000000	MOVQ $0x600000004, DX
+  relax_experiment_amd64.go:16	0x1401789c7		4889542468		MOVQ DX, 0x68(SP)
+  relax_experiment_amd64.go:16	0x1401789cc		c744247402000000	MOVL $0x2, 0x74(SP)
+  relax_experiment_amd64.go:16	0x1401789d4		4889542478		MOVQ DX, 0x78(SP)
+  relax_experiment_amd64.go:16	0x1401789d9		c5fe6f4c2460		VMOVDQU 0x60(SP), Y1
+  relax_experiment_amd64.go:17	0x1401789df		488d542450		LEAQ 0x50(SP), DX
+  relax_experiment_amd64.go:17	0x1401789e4		440f113a		MOVUPS X15, 0(DX)
+  relax_experiment_amd64.go:17	0x1401789e8		66c74424520100		MOVW $0x1, 0x52(SP)
+  relax_experiment_amd64.go:17	0x1401789ef		c744245402000300	MOVL $0x30002, 0x54(SP)
+  relax_experiment_amd64.go:17	0x1401789f7		48ba0400050006000700	MOVQ $0x7000600050004, DX
+  relax_experiment_amd64.go:17	0x140178a01		4889542458		MOVQ DX, 0x58(SP)
+  relax_experiment_amd64.go:17	0x140178a06		c5fa6f542450		VMOVDQU 0x50(SP), X2
+  relax_experiment_amd64.go:33	0x140178a0c		498d5201		LEAQ 0x1(R10), DX
+  relax_experiment_amd64.go:38	0x140178a10		498d5af9		LEAQ -0x7(R10), BX
+  other_gen_amd64.go:184	0x140178a14		c4e27d19c0		VBROADCASTSD X0, Y0
+  relax_experiment_amd64.go:18	0x140178a19		eb16			JMP 0x140178a31
+  relax_experiment_amd64.go:9	0x140178a1b		0f1f440000		NOPL 0(AX)(AX*1)
+  relax_experiment_amd64.go:9	0x140178a20		e81b030000		CALL github.com/ralscha/zopfli-go.relaxStatLengthsScalar(SB)
+  relax_experiment_amd64.go:10	0x140178a25		4883ec80		SUBQ $-0x80, SP
+  relax_experiment_amd64.go:10	0x140178a29		5d			POPQ BP
+  relax_experiment_amd64.go:10	0x140178a2a		c3			RET
+  relax_experiment_amd64.go:10	0x140178a2b		4989d9			MOVQ BX, R9
+  relax_experiment_amd64.go:10	0x140178a2e		4889f3			MOVQ SI, BX
+  relax_experiment_amd64.go:19	0x140178a31		498d7104		LEAQ 0x4(R9), SI
+  relax_experiment_amd64.go:19	0x140178a35		4839f1			CMPQ CX, SI
+  relax_experiment_amd64.go:19	0x140178a38		0f8247010000		JB 0x140178b85
+  relax_experiment_amd64.go:19	0x140178a3e		6690			NOPW
+  relax_experiment_amd64.go:19	0x140178a40		4939f1			CMPQ R9, SI
+  relax_experiment_amd64.go:19	0x140178a43		0f8733010000		JA 0x140178b7c
+  relax_experiment_amd64.go:20	0x140178a49		4d8d5108		LEAQ 0x8(R9), R10
+  relax_experiment_amd64.go:19	0x140178a4d		4e8d24c8		LEAQ 0(AX)(R9*8), R12
+  relax_experiment_amd64.go:20	0x140178a51		4c39d1			CMPQ CX, R10
+  relax_experiment_amd64.go:20	0x140178a54		0f821d010000		JB 0x140178b77
+  relax_experiment_amd64.go:20	0x140178a5a		660f1f440000		NOPW 0(AX)(AX*1)
+  relax_experiment_amd64.go:20	0x140178a60		4939f2			CMPQ R10, SI
+  relax_experiment_amd64.go:20	0x140178a63		0f8209010000		JB 0x140178b72
+  relax_experiment_amd64.go:21	0x140178a69		418403			TESTB AL, 0(R11)
+  relax_experiment_amd64.go:20	0x140178a6c		4e8d2cc8		LEAQ 0(AX)(R9*8), R13
+  relax_experiment_amd64.go:20	0x140178a70		4d8d6d20		LEAQ 0x20(R13), R13
+  relax_experiment_amd64.go:20	0x140178a74		660f1f840000000000	NOPW 0(AX)(AX*1)
+  relax_experiment_amd64.go:20	0x140178a7d		0f1f00			NOPL 0(AX)
+  relax_experiment_amd64.go:21	0x140178a80		4881fe03010000		CMPQ SI, $0x103
+  relax_experiment_amd64.go:21	0x140178a87		0f87db000000		JA 0x140178b68
+  relax_experiment_amd64.go:21	0x140178a8d		4b8d34cb		LEAQ 0(R11)(R9*8), SI
+  relax_experiment_amd64.go:21	0x140178a91		c5fd581e		VADDPD 0(SI), Y0, Y3
+  relax_experiment_amd64.go:21	0x140178a95		660f1f840000000000	NOPW 0(AX)(AX*1)
+  relax_experiment_amd64.go:21	0x140178a9e		6690			NOPW
+  relax_experiment_amd64.go:22	0x140178aa0		4981fa03010000		CMPQ R10, $0x103
+  relax_experiment_amd64.go:22	0x140178aa7		0f87b1000000		JA 0x140178b5e
+  relax_experiment_amd64.go:22	0x140178aad		4b8d34cb		LEAQ 0(R11)(R9*8), SI
+  relax_experiment_amd64.go:22	0x140178ab1		488d7620		LEAQ 0x20(SI), SI
+  relax_experiment_amd64.go:22	0x140178ab5		c5fd5826		VADDPD 0(SI), Y0, Y4
+  slice_gen_amd64.go:240	0x140178ab9		c4c17e6f2c24		VMOVDQU 0(R12), Y5
+  relax_experiment_amd64.go:23	0x140178abf		c5e5c2f501		VCMPPD $0x1, Y5, Y3, Y6
+  relax_experiment_amd64.go:27	0x140178ac4		c4e27536fe		VPERMD Y6, Y1, Y7
+  relax_experiment_amd64.go:27	0x140178ac9		c4e37d39ff00		VEXTRACTI128 $0x0, Y7, X7
+  slice_gen_amd64.go:240	0x140178acf		c4417e6f4500		VMOVDQU 0(R13), Y8
+  relax_experiment_amd64.go:24	0x140178ad5		c4415dc2c801		VCMPPD $0x1, Y8, Y4, Y9
+  relax_experiment_amd64.go:28	0x140178adb		c4427536d1		VPERMD Y9, Y1, Y10
+  relax_experiment_amd64.go:28	0x140178ae0		c4437d39d200		VEXTRACTI128 $0x0, Y10, X10
+  maskmerge_gen_amd64.go:580	0x140178ae6		c4e3554cdb60		VPBLENDVB Y6, Y3, Y5, Y3
+  maskmerge_gen_amd64.go:580	0x140178aec		c4e33d4ce490		VPBLENDVB Y9, Y4, Y8, Y4
+  other_gen_amd64.go:58		0x140178af2		c4c1f96ee9		VMOVQ R9, X5
+  other_gen_amd64.go:58		0x140178af7		c4e27979ed		VPBROADCASTW X5, X5
+  relax_experiment_amd64.go:25	0x140178afc		90			NOPL
+  relax_experiment_amd64.go:25	0x140178afd		90			NOPL
+  slice_gen_amd64.go:246	0x140178afe		c4c17e7f1c24		VMOVDQU Y3, 0(R12)
+  relax_experiment_amd64.go:26	0x140178b04		90			NOPL
+  relax_experiment_amd64.go:26	0x140178b05		90			NOPL
+  slice_gen_amd64.go:246	0x140178b06		c4c17e7f6500		VMOVDQU Y4, 0(R13)
+  relax_experiment_amd64.go:29	0x140178b0c		c4c1416bda		VPACKSSDW X10, X7, X3
+  relax_experiment_amd64.go:30	0x140178b11		c5d1fde2		VPADDW X2, X5, X4
+  relax_experiment_amd64.go:31	0x140178b15		4d39d0			CMPQ R8, R10
+  relax_experiment_amd64.go:31	0x140178b18		723f			JB 0x140178b59
+  relax_experiment_amd64.go:31	0x140178b1a		4a8d344f		LEAQ 0(DI)(R9*2), SI
+  relax_experiment_amd64.go:32	0x140178b1e		c5d9dbe3		VPAND X3, X4, X4
+  relax_experiment_amd64.go:32	0x140178b22		c5e1df1e		VPANDN 0(SI), X3, X3
+  relax_experiment_amd64.go:32	0x140178b26		c5d9ebdb		VPOR X3, X4, X3
+  slice_gen_amd64.go:78		0x140178b2a		c5fa7f1e		VMOVDQU X3, 0(SI)
+  relax_experiment_amd64.go:33	0x140178b2e		4c39d2			CMPQ DX, R10
+  relax_experiment_amd64.go:33	0x140178b31		741d			JE 0x140178b50
+  relax_experiment_amd64.go:37	0x140178b33		498d7110		LEAQ 0x10(R9), SI
+  relax_experiment_amd64.go:37	0x140178b37		4839d6			CMPQ SI, DX
+  relax_experiment_amd64.go:37	0x140178b3a		7e09			JLE 0x140178b45
+  relax_experiment_amd64.go:38	0x140178b3c		4889de			MOVQ BX, SI
+  relax_experiment_amd64.go:38	0x140178b3f		90			NOPL
+  relax_experiment_amd64.go:38	0x140178b40		e9e6feffff		JMP 0x140178a2b
+  relax_experiment_amd64.go:38	0x140178b45		4889de			MOVQ BX, SI
+  relax_experiment_amd64.go:38	0x140178b48		4c89d3			MOVQ R10, BX
+  relax_experiment_amd64.go:37	0x140178b4b		e9dbfeffff		JMP 0x140178a2b
+  relax_experiment_amd64.go:41	0x140178b50		c5f8774883		VZEROUPPER
+  relax_experiment_amd64.go:42	0x140178b55		ec			INL DX, AL
+  relax_experiment_amd64.go:42	0x140178b56		805dc3e8		SBBB $0xe8, -0x3d(BP)
+  relax_experiment_amd64.go:31	0x140178b5a		42			?
+  relax_experiment_amd64.go:31	0x140178b5b		2ef1			CS ICEBP
+  relax_experiment_amd64.go:31	0x140178b5d		ff			?
+  relax_experiment_amd64.go:22	0x140178b5e		b803010000		MOVL $0x103, AX
+  relax_experiment_amd64.go:22	0x140178b63		e8382ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:21	0x140178b68		b803010000		MOVL $0x103, AX
+  relax_experiment_amd64.go:21	0x140178b6d		e82e2ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:20	0x140178b72		e8292ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:20	0x140178b77		e8242ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:19	0x140178b7c		0f1f4000		NOPL 0(AX)
+  relax_experiment_amd64.go:19	0x140178b80		e81b2ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:19	0x140178b85		e8162ef1ff		CALL runtime.panicBounds(SB)
+  relax_experiment_amd64.go:19	0x140178b8a		90			NOPL
+  relax_experiment_amd64.go:7	0x140178b8b		4889442408		MOVQ AX, 0x8(SP)
+  relax_experiment_amd64.go:7	0x140178b90		48895c2410		MOVQ BX, 0x10(SP)
+  relax_experiment_amd64.go:7	0x140178b95		48894c2418		MOVQ CX, 0x18(SP)
+  relax_experiment_amd64.go:7	0x140178b9a		48897c2420		MOVQ DI, 0x20(SP)
+  relax_experiment_amd64.go:7	0x140178b9f		4889742428		MOVQ SI, 0x28(SP)
+  relax_experiment_amd64.go:7	0x140178ba4		4c89442430		MOVQ R8, 0x30(SP)
+  relax_experiment_amd64.go:7	0x140178ba9		4c894c2438		MOVQ R9, 0x38(SP)
+  relax_experiment_amd64.go:7	0x140178bae		4c89542440		MOVQ R10, 0x40(SP)
+  relax_experiment_amd64.go:7	0x140178bb3		f20f11442448		MOVSD_XMM X0, 0x48(SP)
+  relax_experiment_amd64.go:7	0x140178bb9		4c895c2450		MOVQ R11, 0x50(SP)
+  relax_experiment_amd64.go:7	0x140178bbe		6690			NOPW
+  relax_experiment_amd64.go:7	0x140178bc0		e89b0ff1ff		CALL runtime.morestack_noctxt.abi0(SB)
+  relax_experiment_amd64.go:7	0x140178bc5		488b442408		MOVQ 0x8(SP), AX
+  relax_experiment_amd64.go:7	0x140178bca		488b5c2410		MOVQ 0x10(SP), BX
+  relax_experiment_amd64.go:7	0x140178bcf		488b4c2418		MOVQ 0x18(SP), CX
+  relax_experiment_amd64.go:7	0x140178bd4		488b7c2420		MOVQ 0x20(SP), DI
+  relax_experiment_amd64.go:7	0x140178bd9		488b742428		MOVQ 0x28(SP), SI
+  relax_experiment_amd64.go:7	0x140178bde		4c8b442430		MOVQ 0x30(SP), R8
+  relax_experiment_amd64.go:7	0x140178be3		4c8b4c2438		MOVQ 0x38(SP), R9
+  relax_experiment_amd64.go:7	0x140178be8		4c8b542440		MOVQ 0x40(SP), R10
+  relax_experiment_amd64.go:7	0x140178bed		f20f10442448		MOVSD_XMM 0x48(SP), X0
+  relax_experiment_amd64.go:7	0x140178bf3		4c8b5c2450		MOVQ 0x50(SP), R11
+  relax_experiment_amd64.go:7	0x140178bf8		e963fdffff		JMP github.com/ralscha/zopfli-go.relaxStatLengths(SB)
+  :-1				0x140178bfd		cc			INT $0x3
+  :-1				0x140178bfe		cc			INT $0x3
+  :-1				0x140178bff		cc			INT $0x3
