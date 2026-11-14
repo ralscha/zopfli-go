@@ -1,3 +1,3 @@
 module github.com/ralscha/zopfli-go
 
-go 1.27.3
+go 1.27.4

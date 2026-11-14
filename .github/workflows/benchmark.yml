@@ -33,10 +33,10 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
 
@@ -44,7 +44,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential
 
       - name: Check out upstream zopfli
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           repository: google/zopfli
           path: _upstream/zopfli
@@ -123,7 +123,7 @@ jobs:
 
       - name: Upload benchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: benchmark-results
           path: |
@@ -134,7 +134,7 @@ jobs:
 
       - name: Upload raw benchmark baseline artifact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: benchmark-purego-raw
           path: benchmark-purego.txt
