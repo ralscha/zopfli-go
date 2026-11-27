@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	zopfli "github.com/ralscha/zopfli-go"
 )
@@ -92,6 +93,7 @@ type fileResult struct {
 	status         string
 	originalSize   int
 	compressedSize int
+	elapsed        time.Duration
 	err            error
 }
 
@@ -103,12 +105,14 @@ type summaryCounts struct {
 }
 
 type jsonResult struct {
-	SourcePath     string `json:"sourcePath"`
-	OutputPath     string `json:"outputPath"`
-	Status         string `json:"status"`
-	OriginalSize   int    `json:"originalSize,omitempty"`
-	CompressedSize int    `json:"compressedSize,omitempty"`
-	Error          string `json:"error,omitempty"`
+	BytesSaved     int     `json:"bytesSaved"`
+	ElapsedMillis  float64 `json:"elapsedMillis"`
+	SourcePath     string  `json:"sourcePath"`
+	OutputPath     string  `json:"outputPath"`
+	Status         string  `json:"status"`
+	OriginalSize   int     `json:"originalSize,omitempty"`
+	CompressedSize int     `json:"compressedSize,omitempty"`
+	Error          string  `json:"error,omitempty"`
 }
 
 type jsonSummary struct {
@@ -493,7 +497,9 @@ func processCandidates(cfg config, candidates []fileCandidate) []fileResult {
 	return collected
 }
 
-func processCandidate(cfg config, candidate fileCandidate) fileResult {
+func processCandidate(cfg config, candidate fileCandidate) (result fileResult) {
+	started := time.Now()
+	defer func() { result.elapsed = time.Since(started) }()
 	data, err := os.ReadFile(candidate.sourcePath)
 	if err != nil {
 		return fileResult{sourcePath: candidate.sourcePath, outputPath: candidate.outputPath, status: statusError, err: err}
@@ -575,12 +581,19 @@ func emitResults(stdout, stderr io.Writer, results []fileResult, cfg config) (su
 			}
 		}
 
+		if cfg.options.Verbose && !cfg.jsonOutput {
+			fmt.Fprintf(stdout, "elapsed %s: %s\n", result.sourcePath, result.elapsed)
+		}
 		jsonEntry := jsonResult{
+			ElapsedMillis:  float64(result.elapsed) / float64(time.Millisecond),
 			SourcePath:     result.sourcePath,
 			OutputPath:     result.outputPath,
 			Status:         result.status,
 			OriginalSize:   result.originalSize,
 			CompressedSize: result.compressedSize,
+		}
+		if result.status == statusWritten {
+			jsonEntry.BytesSaved = result.originalSize - result.compressedSize
 		}
 		if result.err != nil {
 			jsonEntry.Error = result.err.Error()
